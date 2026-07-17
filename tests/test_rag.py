@@ -1,162 +1,159 @@
-"""
-Test cases for ForgeLens.
+"""Unit tests for extraction, SQLite vectors, retrieval, and runtime policy."""
 
-Run with:
-    python -m pytest -v
-"""
+from __future__ import annotations
 
 import os
+import sqlite3
 import sys
+from pathlib import Path
 
-os.environ["SUMMER_RAG_FORCE_FALLBACK"] = "1"
+import pytest
+
+os.environ["TRACEFOLD_RUNTIME"] = "fake"
+os.environ["TRACEFOLD_RETRIEVAL_THRESHOLD"] = "0.12"
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 
-from correction import CorrectionAgent
-from ingestion import DocumentParser
-from rag import RAGPipeline
+from ingestion import DocumentParser, TextBlock
+from rag import REFUSAL, RAGPipeline
+from evaluation import load_evaluation_dataset
+from runtime import FakeRuntime, RuntimeUnavailable, create_runtime
+from storage import TracefoldStore, decode_embedding, encode_embedding
 
 
-class TestCorrectionAgent:
-    def setup_method(self):
-        self.agent = CorrectionAgent()
-        self.records = [
+def test_markdown_sections_are_retained(tmp_path):
+    path = tmp_path / "guide.md"
+    path.write_text(
+        "# Setup\n\nDownload the two local models before disconnecting.\n\n"
+        "## Privacy\n\nUploaded documents never leave the device.",
+        encoding="utf-8",
+    )
+    chunks = DocumentParser().parse(path, chunk_size=12, overlap=2)
+    assert [chunk.section for chunk in chunks] == ["Setup", "Privacy"]
+    assert all(chunk.token_count <= 12 for chunk in chunks)
+
+
+def test_markdown_chunks_never_merge_adjacent_sections(tmp_path):
+    path = tmp_path / "sections.md"
+    path.write_text(
+        "# Guide\n\nIntroductory context.\n\n## Arrival\n\nLate arrival instructions.\n\n"
+        "## Safety\n\nEmergency instructions.",
+        encoding="utf-8",
+    )
+    chunks = DocumentParser().parse(path, chunk_size=240, overlap=45)
+    assert [chunk.section for chunk in chunks] == ["Guide", "Arrival", "Safety"]
+    assert "Safety" not in chunks[1].text
+
+
+def test_paragraph_aware_chunking_and_overlap():
+    blocks = [
+        TextBlock(text=" ".join(f"alpha{i}" for i in range(80)), page=1),
+        TextBlock(text=" ".join(f"beta{i}" for i in range(80)), page=2),
+    ]
+    chunks = DocumentParser().chunk_blocks(blocks, chunk_size=100, overlap=20)
+    assert len(chunks) >= 2
+    assert chunks[0].page_start == 1
+    assert chunks[-1].page_end == 2
+    assert all(chunk.token_count <= 100 for chunk in chunks)
+
+
+def test_scanned_pdf_reports_ocr_hint(tmp_path):
+    import fitz
+
+    path = tmp_path / "scan.pdf"
+    document = fitz.open()
+    document.new_page()
+    document.save(path)
+    document.close()
+    with pytest.raises(ValueError, match="OCR"):
+        DocumentParser().parse(path)
+
+
+def test_embedding_binary_round_trip_is_float32():
+    values = [0.125, -0.5, 1.0]
+    blob = encode_embedding(values)
+    assert len(blob) == 12
+    assert decode_embedding(blob, 3) == values
+
+
+def test_store_persists_vector_as_blob(tmp_path):
+    store = TracefoldStore(tmp_path / "tracefold.db")
+    store.add_document(
+        document_id="doc_1",
+        filename="guide.txt",
+        stored_name="doc_1.txt",
+        media_type="text/plain",
+        sha256="a" * 64,
+        size_bytes=10,
+        chunks=[
             {
-                "Name": "Ada Yilmaz",
-                "Email": "ada.yilmaz@example.com",
-                "Project": "Building Your First Local RAG Application with Foundry Local",
-            },
-            {"Name": "Fantastic Dragon", "Email": "student123@mail.com", "Project": "Quantum"},
-            {"Name": "Ahmet Kaya", "Email": "ahmet.kaya@mail.com", "Project": "Stock"},
-            {"Name": "", "Email": "invalid-email", "Project": "Unknown Project"},
-        ]
-        self.agent.load_records("test_file", self.records, filename="students.csv")
-
-    def test_suspicious_name_detection(self):
-        proposals = self.agent.analyze("test_file")
-        name_proposals = [p for p in proposals if p["issue_type"] == "suspicious_name"]
-        assert any(p["current_value"] == "Fantastic Dragon" for p in name_proposals)
-
-    def test_empty_name_detection(self):
-        proposals = self.agent.analyze("test_file")
-        empty_names = [
-            p
-            for p in proposals
-            if p["issue_type"] == "suspicious_name" and p["current_value"] == ""
-        ]
-        assert len(empty_names) == 1
-
-    def test_invalid_email_detection(self):
-        proposals = self.agent.analyze("test_file")
-        email_issues = [p for p in proposals if p["issue_type"] == "invalid_email"]
-        assert any(p["current_value"] == "invalid-email" for p in email_issues)
-
-    def test_project_standardization(self):
-        proposals = self.agent.analyze("test_file")
-        quantum = [p for p in proposals if p["current_value"] == "Quantum"]
-        stock = [p for p in proposals if p["current_value"] == "Stock"]
-        assert quantum[0]["proposed_value"] == "Quantum Kickstart with Q#"
-        assert stock[0]["proposed_value"] == "Stock Price Prediction with PyTorch"
-
-    def test_valid_record_not_flagged(self):
-        proposals = self.agent.analyze("test_file")
-        valid_record_issues = [p for p in proposals if p["record_index"] == 0]
-        assert valid_record_issues == []
-
-    def test_analysis_does_not_duplicate_pending_items(self):
-        first = self.agent.analyze("test_file")
-        second = self.agent.analyze("test_file")
-        assert len(first) == len(second)
-        assert self.agent.pending_count() == len(second)
-
-    def test_approval_applies_safe_project_patch(self):
-        proposals = self.agent.analyze("test_file")
-        quantum = [p for p in proposals if p["current_value"] == "Quantum"][0]
-        result = self.agent.process_approval(quantum["correction_id"], True, "Approved")
-        assert result["status"] == "approved"
-        assert result["applied"] is True
-        assert self.agent.get_records("test_file")[1]["Project"] == "Quantum Kickstart with Q#"
-
-    def test_manual_correction_is_not_auto_applied(self):
-        proposals = self.agent.analyze("test_file")
-        manual = [p for p in proposals if p["proposed_value"].startswith("[REQUIRES")][0]
-        result = self.agent.process_approval(manual["correction_id"], True, "Needs human data")
-        assert result["status"] == "approved"
-        assert result["applied"] is False
-
-    def test_rejection_stays_out_of_future_pending_list(self):
-        proposals = self.agent.analyze("test_file")
-        rejected = proposals[0]
-        self.agent.process_approval(rejected["correction_id"], False, "Rejected")
-        refreshed = self.agent.analyze("test_file")
-        assert all(p["correction_id"] != rejected["correction_id"] for p in refreshed)
-
-    def test_export_csv(self):
-        csv_text = self.agent.export_csv("test_file")
-        assert "Ada Yilmaz" in csv_text
-        assert "Project" in csv_text
+                "id": "chunk_1",
+                "ordinal": 0,
+                "text": "local evidence",
+                "page_start": None,
+                "page_end": None,
+                "section": None,
+                "token_count": 2,
+                "embedding": [0.5, 0.25],
+            }
+        ],
+    )
+    with sqlite3.connect(store.db_path) as connection:
+        kind, length = connection.execute(
+            "SELECT typeof(embedding), length(embedding) FROM chunks"
+        ).fetchone()
+    assert (kind, length) == ("blob", 8)
+    assert store.all_chunks()[0]["embedding"] == [0.5, 0.25]
 
 
-class TestDocumentParser:
-    def setup_method(self):
-        self.parser = DocumentParser()
-
-    def test_txt_parsing(self, tmp_path):
-        test_file = tmp_path / "test.txt"
-        test_file.write_text("This is a test document. It has multiple words.")
-        chunks = self.parser.parse(str(test_file))
-        assert len(chunks) > 0
-        assert "test document" in chunks[0].lower()
-
-    def test_csv_parsing(self, tmp_path):
-        test_file = tmp_path / "test.csv"
-        test_file.write_text("Name,Email,Project\nFurkan,furkan@test.com,RAG\nAhmet,ahmet@test.com,Quantum\n")
-        chunks = self.parser.parse(str(test_file))
-        assert len(chunks) == 2
-        assert chunks[0].startswith("[Row 1]")
-
-    def test_csv_records(self, tmp_path):
-        test_file = tmp_path / "records.csv"
-        test_file.write_text("Name,Email,Project\nFurkan,furkan@test.com,RAG\n")
-        records = self.parser.parse_records(str(test_file))
-        assert len(records) == 1
-        assert records[0]["Name"] == "Furkan"
-
-    def test_unsupported_file(self, tmp_path):
-        test_file = tmp_path / "test.xyz"
-        test_file.write_text("content")
-        try:
-            self.parser.parse(str(test_file))
-            assert False, "Should have raised ValueError"
-        except ValueError:
-            pass
-
-    def test_empty_file_raises(self, tmp_path):
-        test_file = tmp_path / "empty.txt"
-        test_file.write_text("")
-        try:
-            self.parser.parse(str(test_file))
-            assert False, "Should have raised ValueError"
-        except ValueError:
-            pass
-
-    def test_chunking_overlap(self):
-        text = "word " * 1000
-        chunks = self.parser._chunk_text(text, chunk_size=100, overlap=20)
-        assert len(chunks) > 1
-        assert len(chunks[0].split()) <= 100
+def test_cosine_ranking_and_grounded_refusal(tmp_path):
+    store = TracefoldStore(tmp_path / "tracefold.db")
+    runtime = FakeRuntime()
+    rag = RAGPipeline(store, runtime)
+    chunks = DocumentParser().chunk_blocks(
+        [TextBlock("Foundry Local performs private inference directly on the device.")]
+    )
+    store.add_document(
+        document_id="doc_1",
+        filename="privacy.txt",
+        stored_name="doc_1.txt",
+        media_type="text/plain",
+        sha256="b" * 64,
+        size_bytes=20,
+        chunks=rag.embed_chunks(chunks),
+    )
+    answer = rag.answer("Where does private inference run?")
+    assert answer["refused"] is False
+    assert answer["citations"][0]["filename"] == "privacy.txt"
+    refused = rag.answer("What is the capital of Botswana?")
+    assert refused["refused"] is True
 
 
-class TestRAGPipeline:
-    def test_fallback_rag_returns_grounded_sources(self):
-        rag = RAGPipeline()
-        rag.ingest(
-            [
-                "Foundry Local lets developers run language and embedding models on device.",
-                "The summer school final presentation is a five minute demo.",
-            ],
-            source="guide.txt",
-        )
-        answer, sources = rag.query("What does Foundry Local run?")
-        assert "fallback" in answer.lower()
-        assert len(sources) >= 1
-        assert sources[0]["source"] == "guide.txt"
+def test_runtime_mode_must_be_explicitly_valid(monkeypatch):
+    monkeypatch.setenv("TRACEFOLD_RUNTIME", "unexpected")
+    with pytest.raises(RuntimeUnavailable, match="must be"):
+        create_runtime()
+
+
+def test_unknown_or_missing_model_citations_are_rejected():
+    citations = [{"index": 1, "filename": "guide.md"}]
+    assert RAGPipeline.validate_generated_answer("A claim without evidence.", citations) == (
+        REFUSAL,
+        [],
+    )
+    assert RAGPipeline.validate_generated_answer("A claim [9].", citations) == (REFUSAL, [])
+    accepted, used = RAGPipeline.validate_generated_answer("A grounded claim [1].", citations)
+    assert accepted == "A grounded claim [1]."
+    assert used == citations
+
+
+def test_checked_in_evaluation_dataset_resolves_demo_sources():
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    payload = load_evaluation_dataset(
+        Path(project_root) / "docs" / "eval-dataset.json",
+        Path(project_root) / "demo_docs",
+    )
+    assert len(payload["cases"]) == 12
+    assert payload["dataset_id"] == "northstar-summer-lab-2026-v1"
+    assert payload["resolved_sources"]["01-program-handbook.md"].endswith(
+        "demo_docs/01-program-handbook.md"
+    )

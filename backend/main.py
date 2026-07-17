@@ -1,260 +1,364 @@
-"""
-ForgeLens backend.
-
-FastAPI application with local-first RAG, student record correction, approval,
-export, and audit logging.
-"""
+"""Tracefold: private, source-grounded RAG powered by Foundry Local."""
 
 from __future__ import annotations
 
+import hashlib
+import json
+import os
 import re
-import shutil
 import uuid
 from pathlib import Path
-from typing import Optional
+from typing import Annotated, Any
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
-from audit import AuditLog
-from correction import CorrectionAgent
-from ingestion import DocumentParser
+from evaluation import Evaluator, load_evaluation_dataset
+from ingestion import DocumentParser, SUPPORTED_EXTENSIONS
 from rag import RAGPipeline
+from runtime import BaseRuntime, RuntimeUnavailable, create_runtime
+from storage import TracefoldStore
 
 
-app = FastAPI(
-    title="ForgeLens",
-    version="2.0.0",
-    description="Local-first RAG and human-in-the-loop correction agent.",
-)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-DATA_DIR = Path(__file__).parent.parent / "data"
-DOCS_DIR = DATA_DIR / "documents"
-UPLOADS_DIR = DATA_DIR / "uploads"
-DB_PATH = DATA_DIR / "audit.db"
-INDEX_PATH = DATA_DIR / "rag_index.json"
-
-for directory in (DATA_DIR, DOCS_DIR, UPLOADS_DIR):
-    directory.mkdir(parents=True, exist_ok=True)
-
-
-rag = RAGPipeline(index_path=INDEX_PATH)
-correction_agent = CorrectionAgent()
-audit = AuditLog(str(DB_PATH))
-parser = DocumentParser()
+MAX_UPLOAD_BYTES = int(os.getenv("TRACEFOLD_MAX_UPLOAD_MB", "25")) * 1024 * 1024
 
 
 class ChatRequest(BaseModel):
-    query: str = Field(..., min_length=1, max_length=2000)
-    top_k: int = Field(4, ge=1, le=8)
+    model_config = ConfigDict(populate_by_name=True)
+
+    question: str = Field(
+        min_length=1,
+        max_length=4000,
+        validation_alias=AliasChoices("question", "query"),
+    )
+    top_k: int = Field(default=5, ge=1, le=12)
 
 
-class CorrectionRequest(BaseModel):
-    file_id: str = "latest"
-    instructions: str = ""
+class EvaluationCase(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    id: str | None = None
+    type: str | None = None
+    category: str | None = None
+    question: str = Field(min_length=1, max_length=4000)
+    answerable: bool = True
+    expected_sources: list[str] = Field(default_factory=list)
+    expected_terms: list[str] = Field(default_factory=list)
+    required_facts: list[str] = Field(default_factory=list)
+    expected_answer_snippet: str | None = None
+    must_refuse: bool = False
 
 
-class ApprovalRequest(BaseModel):
-    correction_id: str
-    approved: bool
-    admin_note: Optional[str] = ""
+class EvaluationRequest(BaseModel):
+    cases: list[EvaluationCase] | None = Field(default=None, max_length=100)
+    top_k: int = Field(default=5, ge=1, le=12)
 
 
 def safe_filename(filename: str) -> str:
-    base = Path(filename).name.strip()
-    base = re.sub(r"[^A-Za-z0-9._ -]+", "_", base)
-    base = re.sub(r"\s+", "_", base)
-    return base or f"upload_{uuid.uuid4().hex[:8]}"
+    basename = Path(filename).name.strip()
+    cleaned = re.sub(r"[^A-Za-z0-9._ -]+", "_", basename)
+    cleaned = re.sub(r"\s+", "_", cleaned).strip("._")
+    return cleaned[:180] or f"document_{uuid.uuid4().hex[:8]}.txt"
 
 
-async def save_upload(file: UploadFile, target_dir: Path) -> tuple[Path, str]:
-    if not file.filename:
-        raise HTTPException(status_code=400, detail="No filename provided.")
-
-    safe_name = safe_filename(file.filename)
-    target_path = target_dir / f"{uuid.uuid4().hex[:8]}_{safe_name}"
-
-    with target_path.open("wb") as handle:
-        shutil.copyfileobj(file.file, handle)
-
-    return target_path, safe_name
+def sse(event: str, data: Any) -> str:
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
-@app.get("/")
-async def root():
-    return {
-        "status": "online",
-        "service": "ForgeLens",
-        "docs": "/docs",
-    }
+def create_app(
+    *,
+    data_dir: str | Path | None = None,
+    runtime: BaseRuntime | None = None,
+) -> FastAPI:
+    root_data = Path(data_dir or os.getenv("TRACEFOLD_DATA_DIR") or Path(__file__).parent.parent / "data")
+    documents_dir = root_data / "documents"
+    documents_dir.mkdir(parents=True, exist_ok=True)
+    store = TracefoldStore(root_data / "tracefold.db")
+    selected_runtime = runtime or create_runtime()
+    parser = DocumentParser()
+    rag = RAGPipeline(store, selected_runtime)
+    evaluator = Evaluator(rag, store)
 
-
-@app.get("/health")
-async def health():
-    return {
-        "status": "healthy",
-        "runtime": rag.runtime_status(),
-        "documents_indexed": rag.document_count(),
-        "chunks_indexed": rag.chunk_count(),
-        "active_records_file": correction_agent.active_file_id(),
-        "records_loaded": correction_agent.record_count(),
-        "corrections": correction_agent.summary(),
-    }
-
-
-@app.post("/api/upload/document")
-async def upload_document(file: UploadFile = File(...)):
-    """Upload a document for RAG indexing."""
-    file_path, display_name = await save_upload(file, DOCS_DIR)
-
-    try:
-        chunks = parser.parse(str(file_path))
-        rag.ingest(chunks, source=display_name)
-        audit.log("document_upload", display_name, {"chunks": len(chunks)})
-        return {
-            "status": "indexed",
-            "filename": display_name,
-            "chunks": len(chunks),
-            "runtime": rag.runtime_status(),
-        }
-    except Exception as exc:
-        file_path.unlink(missing_ok=True)
-        raise HTTPException(status_code=500, detail=f"Ingestion failed: {exc}") from exc
-
-
-@app.post("/api/chat")
-async def chat(request: ChatRequest):
-    """Ask a question and get a grounded answer with citations."""
-    try:
-        answer, sources = rag.query(request.query, top_k=request.top_k)
-        audit.log("chat_query", request.query, {"sources": sources})
-        return {
-            "answer": answer,
-            "sources": sources,
-            "runtime": rag.runtime_status(),
-        }
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Query failed: {exc}") from exc
-
-
-@app.get("/api/documents")
-async def list_documents():
-    return {"documents": rag.list_documents(), "chunks": rag.chunk_count()}
-
-
-@app.delete("/api/documents")
-async def clear_documents():
-    rag.clear()
-    audit.log("document_index_clear", "all", {})
-    return {"status": "cleared"}
-
-
-@app.post("/api/upload/records")
-async def upload_records(file: UploadFile = File(...)):
-    """Upload a CSV/XLSX file with student records for correction analysis."""
-    file_path, display_name = await save_upload(file, UPLOADS_DIR)
-
-    try:
-        records = parser.parse_records(str(file_path))
-        file_id = f"records_{uuid.uuid4().hex[:10]}"
-        correction_agent.load_records(file_id, records, filename=display_name)
-        audit.log("records_upload", display_name, {"file_id": file_id, "records": len(records)})
-        return {
-            "status": "loaded",
-            "file_id": file_id,
-            "filename": display_name,
-            "records": len(records),
-            "preview": records[:5],
-        }
-    except Exception as exc:
-        file_path.unlink(missing_ok=True)
-        raise HTTPException(status_code=500, detail=f"Failed to parse records: {exc}") from exc
-
-
-@app.get("/api/records")
-async def list_record_files():
-    return {"files": correction_agent.list_files()}
-
-
-@app.get("/api/records/{file_id}")
-async def preview_records(file_id: str, limit: int = 25):
-    return {
-        "file_id": file_id,
-        "records": correction_agent.get_records(file_id, limit=limit),
-    }
-
-
-@app.post("/api/correction/analyze")
-async def analyze_corrections(request: CorrectionRequest):
-    try:
-        proposals = correction_agent.analyze(request.file_id, request.instructions)
-        audit.log("correction_analysis", request.file_id, {"proposals": len(proposals)})
-        return {
-            "corrections": proposals,
-            "summary": correction_agent.summary(),
-        }
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Analysis failed: {exc}") from exc
-
-
-@app.post("/api/correction/approve")
-async def approve_correction(request: ApprovalRequest):
-    try:
-        result = correction_agent.process_approval(
-            request.correction_id,
-            request.approved,
-            request.admin_note or "",
-        )
-        audit.log(
-            "correction_approval",
-            request.correction_id,
-            {"approved": request.approved, "result": result},
-        )
-        return result
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Approval failed: {exc}") from exc
-
-
-@app.get("/api/corrections/pending")
-async def pending_corrections():
-    return {
-        "corrections": correction_agent.get_pending(),
-        "summary": correction_agent.summary(),
-    }
-
-
-@app.get("/api/correction/export/{file_id}")
-async def export_records(file_id: str):
-    try:
-        csv_text = correction_agent.export_csv(file_id)
-    except Exception as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-    filename = f"{safe_filename(file_id)}_corrected.csv"
-    return StreamingResponse(
-        iter([csv_text]),
-        media_type="text/csv",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    application = FastAPI(
+        title="Tracefold",
+        version="3.0.0",
+        description="Answers you can trace — fully local RAG with Foundry Local.",
+    )
+    allowed_origins = [
+        item.strip()
+        for item in os.getenv(
+            "TRACEFOLD_ALLOWED_ORIGINS",
+            "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8000,http://127.0.0.1:8000",
+        ).split(",")
+        if item.strip()
+    ]
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=allowed_origins,
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "DELETE"],
+        allow_headers=["Content-Type"],
     )
 
+    application.state.store = store
+    application.state.runtime = selected_runtime
+    application.state.rag = rag
+    application.state.documents_dir = documents_dir
 
-@app.get("/api/audit")
-async def get_audit_log(limit: int = 50):
-    return {"entries": audit.get_recent(limit)}
+    @application.exception_handler(RuntimeUnavailable)
+    async def runtime_unavailable_handler(_request, exc: RuntimeUnavailable):
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(
+            status_code=503,
+            content={
+                "detail": str(exc),
+                "code": "runtime_unavailable",
+                "runtime": selected_runtime.status(),
+            },
+        )
+
+    frontend_dist = Path(
+        os.getenv("TRACEFOLD_FRONTEND_DIST")
+        or Path(__file__).parent.parent / "frontend" / "dist"
+    )
+
+    @application.get("/")
+    async def root():
+        if (frontend_dist / "index.html").is_file():
+            return FileResponse(frontend_dist / "index.html")
+        return JSONResponse(
+            {"service": "Tracefold", "tagline": "Answers you can trace.", "docs": "/docs"}
+        )
+
+    @application.get("/health")
+    async def health() -> dict[str, Any]:
+        return {
+            "status": "healthy",
+            "service": "Tracefold",
+            "runtime": selected_runtime.status(probe=False),
+            **store.counts(),
+        }
+
+    @application.get("/api/runtime")
+    async def runtime_status() -> dict[str, Any]:
+        status = selected_runtime.status(probe=True)
+        return {**status, "available": status.get("error") is None}
+
+    @application.post("/api/documents", status_code=201)
+    async def upload_document(file: Annotated[UploadFile, File(...)]) -> dict[str, Any]:
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="A filename is required.")
+        display_name = safe_filename(file.filename)
+        extension = Path(display_name).suffix.lower()
+        if extension not in SUPPORTED_EXTENSIONS:
+            raise HTTPException(
+                status_code=415,
+                detail=f"Unsupported file type. Use: {', '.join(sorted(SUPPORTED_EXTENSIONS))}.",
+            )
+
+        payload = await file.read(MAX_UPLOAD_BYTES + 1)
+        if len(payload) > MAX_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File is larger than the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB limit.",
+            )
+        if not payload:
+            raise HTTPException(status_code=400, detail="The uploaded file is empty.")
+
+        digest = hashlib.sha256(payload).hexdigest()
+        duplicate = store.find_document_by_hash(digest)
+        if duplicate:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "This document is already indexed.",
+                    "document_id": duplicate["id"],
+                },
+            )
+
+        document_id = f"doc_{uuid.uuid4().hex}"
+        stored_name = f"{document_id}{extension}"
+        stored_path = documents_dir / stored_name
+        job_id = store.create_job(document_id=document_id, message="Validating document")
+        stored_path.write_bytes(payload)
+        try:
+            store.update_job(job_id, status="processing", progress=0.2, message="Extracting text")
+            parsed_chunks = parser.parse(
+                stored_path,
+                chunk_size=int(os.getenv("TRACEFOLD_CHUNK_SIZE", "240")),
+                overlap=int(os.getenv("TRACEFOLD_CHUNK_OVERLAP", "45")),
+            )
+            store.update_job(job_id, status="processing", progress=0.55, message="Creating embeddings")
+            embedded_chunks = rag.embed_chunks(parsed_chunks)
+            store.update_job(job_id, status="processing", progress=0.9, message="Saving index")
+            store.add_document(
+                document_id=document_id,
+                filename=display_name,
+                stored_name=stored_name,
+                media_type=file.content_type,
+                sha256=digest,
+                size_bytes=len(payload),
+                chunks=embedded_chunks,
+            )
+            store.update_job(
+                job_id,
+                status="completed",
+                progress=1,
+                message="Ready to search",
+                document_id=document_id,
+            )
+        except RuntimeUnavailable:
+            stored_path.unlink(missing_ok=True)
+            store.update_job(
+                job_id,
+                status="failed",
+                progress=1,
+                message="Foundry Local is unavailable",
+                error="The configured local models could not be loaded.",
+            )
+            raise
+        except ValueError as exc:
+            stored_path.unlink(missing_ok=True)
+            store.update_job(job_id, status="failed", progress=1, message="Ingestion failed", error=str(exc))
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except Exception as exc:
+            stored_path.unlink(missing_ok=True)
+            store.update_job(job_id, status="failed", progress=1, message="Ingestion failed", error=str(exc))
+            raise HTTPException(status_code=500, detail=f"Document ingestion failed: {exc}") from exc
+
+        return {
+            "status": "indexed",
+            "job_id": job_id,
+            "document": store.get_document(document_id),
+            "runtime": selected_runtime.status(),
+        }
+
+    @application.get("/api/documents")
+    async def list_documents() -> dict[str, Any]:
+        counts = store.counts()
+        return {
+            "documents": store.list_documents(),
+            "document_count": counts["documents"],
+            "chunk_count": counts["chunks"],
+            "chunks": counts["chunks"],
+        }
+
+    @application.delete("/api/documents")
+    async def clear_documents() -> dict[str, Any]:
+        removed = store.clear_documents()
+        for document in removed:
+            (documents_dir / document["stored_name"]).unlink(missing_ok=True)
+        return {"status": "cleared", "deleted": len(removed)}
+
+    @application.delete("/api/documents/{document_id}")
+    async def delete_document(document_id: str) -> dict[str, Any]:
+        document = store.delete_document(document_id)
+        if not document:
+            raise HTTPException(status_code=404, detail="Document not found.")
+        (documents_dir / document["stored_name"]).unlink(missing_ok=True)
+        return {"status": "deleted", "document_id": document_id}
+
+    @application.get("/api/jobs/{job_id}")
+    async def get_job(job_id: str) -> dict[str, Any]:
+        job = store.get_job(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Ingestion job not found.")
+        return job
+
+    @application.post("/api/chat")
+    async def chat(request: ChatRequest) -> dict[str, Any]:
+        return {
+            **rag.answer(request.question.strip(), top_k=request.top_k),
+            "runtime": selected_runtime.status(),
+        }
+
+    @application.post("/api/chat/stream")
+    async def chat_stream(request: ChatRequest) -> StreamingResponse:
+        metadata, tokens = rag.answer_stream(request.question.strip(), top_k=request.top_k)
+
+        def events():
+            answer = ""
+            try:
+                yield sse(
+                    "retrieval",
+                    {
+                        "retrieval_ms": metadata["retrieval_ms"],
+                        "matches": metadata["matches"],
+                        "threshold": metadata["threshold"],
+                    },
+                )
+                for token in tokens:
+                    answer += token
+                    yield sse("token", {"text": token})
+                citations = (
+                    []
+                    if answer.strip()
+                    == "I couldn't find enough evidence in the indexed documents to answer that."
+                    else metadata["citations"]
+                )
+                yield sse("citations", {"citations": citations})
+                yield sse("done", {"answer": answer.strip(), "refused": not citations})
+            except Exception as exc:
+                yield sse("error", {"code": "generation_failed", "message": str(exc)})
+
+        return StreamingResponse(
+            events(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    @application.post("/api/evaluations/run")
+    async def run_evaluation(request: EvaluationRequest | None = None) -> dict[str, Any]:
+        request = request or EvaluationRequest()
+        dataset_id: str | None = None
+        if request.cases:
+            cases = [case.model_dump() for case in request.cases]
+        else:
+            project_root = Path(__file__).parent.parent
+            dataset = load_evaluation_dataset(
+                project_root / "docs" / "eval-dataset.json",
+                project_root / "demo_docs",
+            )
+            dataset_id = dataset.get("dataset_id")
+            cases = dataset["cases"]
+        try:
+            return evaluator.run(cases, top_k=request.top_k, dataset_id=dataset_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @application.get("/api/evaluations/latest")
+    async def latest_evaluation() -> dict[str, Any]:
+        run = store.latest_evaluation()
+        if not run:
+            raise HTTPException(status_code=404, detail="No evaluation has been run yet.")
+        return run
+
+    @application.get("/{asset_path:path}", include_in_schema=False)
+    async def frontend_asset(asset_path: str):
+        if asset_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="API route not found.")
+        candidate = (frontend_dist / asset_path).resolve()
+        try:
+            candidate.relative_to(frontend_dist.resolve())
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail="Asset not found.") from exc
+        if candidate.is_file():
+            return FileResponse(candidate)
+        index = frontend_dist / "index.html"
+        if index.is_file():
+            return FileResponse(index)
+        raise HTTPException(status_code=404, detail="Frontend build not found.")
+
+    return application
+
+
+app = create_app()
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="127.0.0.1", port=8000)

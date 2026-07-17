@@ -1,0 +1,184 @@
+{
+  "schema_version": "1.0",
+  "dataset_id": "northstar-summer-lab-2026-v1",
+  "description": "Synthetic evaluation set for the Tracefold local RAG demo.",
+  "standard_refusal": "I couldn't find enough evidence in the indexed documents to answer that.",
+  "default_top_k": 5,
+  "cases": [
+    {
+      "id": "NSL-A01",
+      "type": "answerable",
+      "category": "single_source_fact",
+      "question": "When and where does Northstar Summer Lab 2026 take place?",
+      "expected_sources": [
+        "01-program-handbook.md"
+      ],
+      "required_facts": [
+        "The program runs from 3 August through 14 August 2026.",
+        "It takes place at Meridian Innovation Campus, Orion Building, 42 Polaris Avenue, Ankara."
+      ],
+      "expected_answer_snippet": "3–14 August 2026 at Meridian Innovation Campus, Orion Building, 42 Polaris Avenue, Ankara",
+      "must_refuse": false
+    },
+    {
+      "id": "NSL-A02",
+      "type": "answerable",
+      "category": "multi_document_procedure",
+      "question": "I will reach campus after 20:00 on arrival day. What must I do, and whom should I contact?",
+      "expected_sources": [
+        "03-travel-guide.md",
+        "04-accommodation-guide.md",
+        "08-contacts-directory.md"
+      ],
+      "required_facts": [
+        "Call the Residence Duty Phone before 19:30 to arrange late key collection.",
+        "Send the revised arrival time to the Program Office.",
+        "The Residence Duty Phone is +90 312 555 0149.",
+        "The Program Office email is program@northstar.example."
+      ],
+      "expected_answer_snippet": "Call +90 312 555 0149 before 19:30 and notify program@northstar.example of the revised arrival time",
+      "must_refuse": false
+    },
+    {
+      "id": "NSL-A03",
+      "type": "answerable",
+      "category": "single_source_requirements",
+      "question": "What laptop specifications should I prepare for the lab?",
+      "expected_sources": [
+        "06-equipment-guide.md"
+      ],
+      "required_facts": [
+        "The recommended minimum is 16 GB RAM.",
+        "The laptop should have 60 GB of free storage after updates.",
+        "It should support Wi-Fi 5 or newer and have a working browser and USB port.",
+        "The participant needs permission to install software and local development tools."
+      ],
+      "expected_answer_snippet": "16 GB RAM, 60 GB free storage, Wi-Fi 5 or newer, a browser and USB port, and installation rights",
+      "must_refuse": false
+    },
+    {
+      "id": "NSL-A04",
+      "type": "answerable",
+      "category": "multi_document_policy",
+      "question": "What happens if I miss the mandatory safety induction?",
+      "expected_sources": [
+        "01-program-handbook.md",
+        "05-safety-guide.md"
+      ],
+      "required_facts": [
+        "The participant may continue software-only work.",
+        "They cannot enter the Fabrication Studio until completing a make-up induction with the Safety Officer."
+      ],
+      "expected_answer_snippet": "Continue software-only work and arrange a make-up induction with the Safety Officer before entering the Fabrication Studio",
+      "must_refuse": false
+    },
+    {
+      "id": "NSL-A05",
+      "type": "answerable",
+      "category": "multi_document_timeline",
+      "question": "I booked the 12:30 departure shuttle on 15 August. How do checkout and luggage storage work?",
+      "expected_sources": [
+        "03-travel-guide.md",
+        "04-accommodation-guide.md"
+      ],
+      "required_facts": [
+        "Checkout and key return are due by 10:00.",
+        "The participant can place luggage in the tagged ground-floor storage room until 12:15 after checkout."
+      ],
+      "expected_answer_snippet": "Check out by 10:00, return the key, and leave tagged luggage in ground-floor storage until 12:15",
+      "must_refuse": false
+    },
+    {
+      "id": "NSL-A06",
+      "type": "answerable",
+      "category": "multi_document_safety_and_conduct",
+      "question": "If threatening conduct creates immediate danger, what must I do first, and how do I report the conduct afterward? Include the exact contacts.",
+      "expected_sources": [
+        "05-safety-guide.md",
+        "07-code-of-conduct.md",
+        "08-contacts-directory.md"
+      ],
+      "required_facts": [
+        "The immediate emergency procedure takes priority over confidential conduct reporting.",
+        "Call campus emergency extension 5555 or +90 312 555 0155.",
+        "A conduct concern can also be reported to the Conduct Lead at conduct@northstar.example once immediate safety is addressed."
+      ],
+      "expected_answer_snippet": "Use 5555 or +90 312 555 0155 first, then report through the Conduct Lead when it is safe",
+      "must_refuse": false
+    },
+    {
+      "id": "NSL-A07",
+      "type": "answerable",
+      "category": "single_source_event",
+      "question": "When is the evacuation drill, and where should people in Orion Building assemble?",
+      "expected_sources": [
+        "05-safety-guide.md"
+      ],
+      "required_facts": [
+        "The scheduled drill is at 11:30 on Tuesday, 4 August.",
+        "Orion Building occupants assemble at North Lawn beside the blue beacon."
+      ],
+      "expected_answer_snippet": "11:30 on Tuesday, 4 August, at North Lawn beside the blue beacon",
+      "must_refuse": false
+    },
+    {
+      "id": "NSL-A08",
+      "type": "answerable",
+      "category": "cross_reference_deadlines",
+      "question": "What must I return with a loan laptop, and how does that deadline relate to the team handoff?",
+      "expected_sources": [
+        "06-equipment-guide.md"
+      ],
+      "required_facts": [
+        "Return the loan laptop, charger, and sleeve by 17:30 on Friday, 14 August.",
+        "The project team handoff is due at 17:00 on 14 August, 30 minutes before the equipment return deadline."
+      ],
+      "expected_answer_snippet": "The team handoff is due at 17:00; return the laptop, charger, and sleeve by 17:30",
+      "must_refuse": false
+    },
+    {
+      "id": "NSL-U01",
+      "type": "unanswerable",
+      "category": "real_time_information",
+      "question": "What will the temperature and weather be at 09:00 on 3 August?",
+      "expected_sources": [],
+      "required_facts": [],
+      "reason_unanswerable": "The corpus contains no weather forecast or live conditions.",
+      "expected_answer_snippet": "I couldn't find enough evidence in the indexed documents to answer that.",
+      "must_refuse": true
+    },
+    {
+      "id": "NSL-U02",
+      "type": "unanswerable",
+      "category": "missing_financial_fact",
+      "question": "How much is the Northstar scholarship stipend?",
+      "expected_sources": [],
+      "required_facts": [],
+      "reason_unanswerable": "No scholarship or stipend amount appears in the corpus.",
+      "expected_answer_snippet": "I couldn't find enough evidence in the indexed documents to answer that.",
+      "must_refuse": true
+    },
+    {
+      "id": "NSL-U03",
+      "type": "unanswerable",
+      "category": "missing_live_travel_fact",
+      "question": "What is the current A2 airport coach fare?",
+      "expected_sources": [],
+      "required_facts": [],
+      "reason_unanswerable": "The Travel Guide names the route but explicitly omits live times and fares.",
+      "expected_answer_snippet": "I couldn't find enough evidence in the indexed documents to answer that.",
+      "must_refuse": true
+    },
+    {
+      "id": "NSL-U04",
+      "type": "unanswerable",
+      "category": "missing_merchandise_fact",
+      "question": "What color is the participant T-shirt?",
+      "expected_sources": [],
+      "required_facts": [],
+      "reason_unanswerable": "The corpus does not mention a participant T-shirt or its color.",
+      "expected_answer_snippet": "I couldn't find enough evidence in the indexed documents to answer that.",
+      "must_refuse": true
+    }
+  ]
+}

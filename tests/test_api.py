@@ -1,80 +1,184 @@
+"""End-to-end API contracts for the Tracefold backend."""
+
+from __future__ import annotations
+
 import os
 import sys
+from pathlib import Path
 
-os.environ["SUMMER_RAG_FORCE_FALLBACK"] = "1"
+os.environ["TRACEFOLD_RUNTIME"] = "fake"
+os.environ["TRACEFOLD_RETRIEVAL_THRESHOLD"] = "0.12"
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 
 from fastapi.testclient import TestClient
 
-from main import app
+from main import create_app
+from runtime import FakeRuntime
 
 
-client = TestClient(app)
+def make_client(tmp_path) -> TestClient:
+    return TestClient(create_app(data_dir=tmp_path / "data", runtime=FakeRuntime()))
 
 
-def test_health_endpoint():
-    response = client.get("/health")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "healthy"
-    assert "runtime" in data
-
-
-def test_document_upload_and_chat_flow():
+def upload_guide(client: TestClient):
     content = (
-        "Foundry Local runs language and embedding models on device. "
-        "The RAG application answers using indexed local documents."
+        "Foundry Local runs language and embedding models directly on the user's device.\n\n"
+        "Tracefold retrieves relevant document chunks and cites every grounded answer."
     )
-    upload = client.post(
-        "/api/upload/document",
-        files={"file": ("guide.txt", content, "text/plain")},
+    return client.post(
+        "/api/documents",
+        files={"file": ("local-guide.txt", content, "text/plain")},
     )
-    assert upload.status_code == 200
-    assert upload.json()["chunks"] == 1
+
+
+def test_health_and_runtime_contract(tmp_path):
+    client = make_client(tmp_path)
+    health = client.get("/health")
+    assert health.status_code == 200
+    assert health.json()["service"] == "Tracefold"
+    assert health.json()["documents"] == 0
+
+    runtime = client.get("/api/runtime")
+    assert runtime.status_code == 200
+    assert runtime.json()["runtime"] == "fake"
+    assert runtime.json()["embedding_model"]["variant_id"] == "fake-embedding-v1"
+    assert runtime.json()["available"] is True
+
+
+def test_document_lifecycle_job_and_grounded_chat(tmp_path):
+    client = make_client(tmp_path)
+    uploaded = upload_guide(client)
+    assert uploaded.status_code == 201, uploaded.text
+    payload = uploaded.json()
+    assert payload["status"] == "indexed"
+    assert payload["document"]["chunk_count"] == 1
+
+    job = client.get(f"/api/jobs/{payload['job_id']}")
+    assert job.status_code == 200
+    assert job.json()["status"] == "completed"
+    assert job.json()["progress"] == 1
+
+    documents = client.get("/api/documents").json()
+    assert documents["document_count"] == 1
+    assert documents["chunks"] == 1
+    assert documents["documents"][0]["filename"] == "local-guide.txt"
 
     chat = client.post(
         "/api/chat",
-        json={"query": "Where does Foundry Local run models?"},
+        json={"question": "Where does Foundry Local run language models?", "top_k": 5},
     )
-    assert chat.status_code == 200
-    payload = chat.json()
-    assert payload["sources"]
-    assert payload["runtime"]["runtime"] == "fallback"
+    assert chat.status_code == 200, chat.text
+    answer = chat.json()
+    assert answer["refused"] is False
+    assert "device" in answer["answer"].lower()
+    assert answer["citations"][0]["filename"] == "local-guide.txt"
+    assert answer["citations"][0]["chunk_id"].startswith("chunk_")
+    assert answer["citations"][0]["text"]
+
+    document_id = payload["document"]["id"]
+    deleted = client.delete(f"/api/documents/{document_id}")
+    assert deleted.status_code == 200
+    assert client.get("/api/documents").json()["document_count"] == 0
 
 
-def test_records_correction_approval_flow():
-    csv_text = (
-        "Name,Email,Project\n"
-        "Ada Yilmaz,ada.yilmaz@example.com,Local RAG\n"
-        "Player1,player1@example.com,Quantum\n"
+def test_query_alias_and_sse_event_order(tmp_path):
+    client = make_client(tmp_path)
+    assert upload_guide(client).status_code == 201
+    response = client.post(
+        "/api/chat/stream",
+        json={"query": "Tracefold retrieves relevant document chunks and cites grounded answers. How?"},
     )
-    upload = client.post(
-        "/api/upload/records",
-        files={"file": ("students.csv", csv_text, "text/csv")},
-    )
-    assert upload.status_code == 200
-    file_id = upload.json()["file_id"]
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    text = response.text
+    positions = [
+        text.index("event: retrieval"),
+        text.index("event: token"),
+        text.index("event: citations"),
+        text.index("event: done"),
+    ]
+    assert positions == sorted(positions)
+    assert "local-guide.txt" in text
 
-    analysis = client.post(
-        "/api/correction/analyze",
-        json={"file_id": file_id, "instructions": "check all fields"},
-    )
-    assert analysis.status_code == 200
-    corrections = analysis.json()["corrections"]
-    assert corrections
 
-    safe_patch = [
-        correction
-        for correction in corrections
-        if correction["issue_type"] == "project_standardization"
-    ][0]
-    approval = client.post(
-        "/api/correction/approve",
-        json={"correction_id": safe_patch["correction_id"], "approved": True},
+def test_refusal_has_no_citations(tmp_path):
+    client = make_client(tmp_path)
+    assert upload_guide(client).status_code == 201
+    response = client.post(
+        "/api/chat",
+        json={"question": "What is the airspeed velocity of an unladen swallow?"},
     )
-    assert approval.status_code == 200
-    assert approval.json()["applied"] is True
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["refused"] is True
+    assert payload["answer"] == (
+        "I couldn't find enough evidence in the indexed documents to answer that."
+    )
+    assert payload["citations"] == []
 
-    exported = client.get(f"/api/correction/export/{file_id}")
-    assert exported.status_code == 200
-    assert "Building Your First Local RAG Application with Foundry Local" in exported.text
+
+def test_duplicate_validation_and_clear(tmp_path):
+    client = make_client(tmp_path)
+    assert upload_guide(client).status_code == 201
+    duplicate = upload_guide(client)
+    assert duplicate.status_code == 409
+
+    unsupported = client.post(
+        "/api/documents",
+        files={"file": ("notes.csv", "a,b", "text/csv")},
+    )
+    assert unsupported.status_code == 415
+    assert client.delete("/api/documents").json()["deleted"] == 1
+
+
+def test_evaluation_run_and_latest(tmp_path):
+    client = make_client(tmp_path)
+    assert upload_guide(client).status_code == 201
+    response = client.post(
+        "/api/evaluations/run",
+        json={
+            "top_k": 5,
+            "cases": [
+                {
+                    "id": "answerable-1",
+                    "question": "Where does Foundry Local run models?",
+                    "answerable": True,
+                    "expected_sources": ["local-guide.txt"],
+                    "expected_terms": ["device"],
+                },
+                {
+                    "id": "negative-1",
+                    "question": "Who won the 1998 World Cup?",
+                    "answerable": False,
+                },
+            ],
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["metrics"]["hit_at_k"] == 1
+    assert response.json()["metrics"]["refusal_accuracy"] == 1
+
+    latest = client.get("/api/evaluations/latest")
+    assert latest.status_code == 200
+    assert latest.json()["id"] == response.json()["id"]
+
+
+def test_checked_in_twelve_case_evaluation_contract(tmp_path):
+    client = make_client(tmp_path)
+    project_root = Path(__file__).parent.parent
+    for path in sorted((project_root / "demo_docs").glob("*.md")):
+        response = client.post(
+            "/api/documents",
+            files={"file": (path.name, path.read_bytes(), "text/markdown")},
+        )
+        assert response.status_code == 201, response.text
+
+    evaluation = client.post("/api/evaluations/run", json={"top_k": 5})
+    assert evaluation.status_code == 200, evaluation.text
+    payload = evaluation.json()
+    assert payload["dataset_id"] == "northstar-summer-lab-2026-v1"
+    assert payload["metrics"]["total_cases"] == 12
+    assert len(payload["cases"]) == 12
+    for metric in ("hit_at_k", "source_recall_at_k", "citation_precision", "refusal_accuracy"):
+        value = payload["metrics"][metric]
+        assert value is None or 0 <= value <= 1

@@ -1,192 +1,165 @@
-# ForgeLens
+# Tracefold
 
-A local-first RAG and correction-review application for the Microsoft Summer School
-project track: **Building Your First Local RAG Application with Foundry Local**.
+> **Answers you can trace.** A private, source-grounded document assistant powered entirely by Microsoft Foundry Local.
 
-The app indexes private documents locally, answers questions with citations, analyzes
-student registration records, proposes structured corrections, routes every proposed
-change through human approval, and records the workflow in a SQLite audit log.
+![Tracefold — Answers you can trace](frontend/public/og.png)
 
-## Name
+Tracefold turns a small document library into inspectable answers. It parses and chunks files, creates embeddings on the device, stores Float32 vectors in SQLite, retrieves evidence with cosine similarity, and asks a local chat model to answer only from numbered passages. If the evidence is too weak—or a generated citation cannot be validated—the application refuses instead of guessing.
 
-**ForgeLens** combines the Foundry Local runtime with the idea of a lens over private
-documents and operational records. It is short, demo-friendly, and easier to present
-than a generic RAG chatbot name.
+The result is an assignment-complete local RAG system presented as a polished product: runtime setup, document library, evidence-first chat, citation drawer, deterministic abstention, and a reproducible quality dashboard.
 
-## Why This Project Stands Out
+## Product preview
 
-Most first RAG demos stop at "upload a PDF and chat with it." This project keeps the
-assigned Foundry Local RAG scope, then adds a realistic operations workflow:
+![Tracefold answer with inspectable local evidence](docs/screenshots/tracefold-ask-evidence.png)
 
-1. Upload a project guide or student list.
-2. Ask grounded questions over the local document index.
-3. Detect invalid names, invalid emails, and non-standard project selections.
-4. Approve or reject proposed patches.
-5. Export the corrected CSV.
-6. Show a local audit trail for the full workflow.
+## Why Tracefold
 
-## Architecture
+- **Local by design:** documents, embeddings, prompts, and answers stay on the machine.
+- **Inspectable evidence:** every displayed citation opens the exact stored passage, section/page, chunk ID, and score.
+- **Grounded failure:** unknown or missing citation IDs are rejected; insufficient retrieval returns one standard refusal.
+- **Honest evaluation:** eight answerable and four unanswerable cases run against a checked-in synthetic corpus, with targets kept separate from measured results.
+- **Presentation ready:** responsive Tracefold branding, a five-minute talk track, architecture/evaluation documentation, and final deck assets.
 
-```text
-Browser UI
-  |
-  | HTTP
-  v
-FastAPI backend
-  |-- DocumentParser: PDF, TXT, CSV, XLSX, HTML, DOCX
-  |-- RAGPipeline: Foundry Local embeddings/chat plus deterministic fallback
-  |-- CorrectionAgent: validation, patch proposals, approval workflow
-  |-- AuditLog: SQLite event trail
-  v
-Local data folder
-```
+## Assignment coverage
 
-Primary AI runtime:
+| Requested capability | Tracefold implementation |
+| --- | --- |
+| 5–10 source documents | 8 cohesive, synthetic Northstar Summer Lab documents |
+| Local embeddings and chat | Foundry Local `qwen3-embedding-0.6b` + `qwen2.5-7b` |
+| Document chunking | Heading-aware 240-token chunks with 45-token overlap; sections never merge |
+| Vector persistence | Little-endian Float32 embedding BLOBs in SQLite |
+| Retrieval | Stable cosine top-k with a per-document diversity cap |
+| Grounded answers | Evidence-only prompt, citation-ID validation, exact evidence drawer |
+| Safe unknown handling | Calibrated pre-generation threshold plus deterministic refusal |
+| Evaluation and testing | 12-case dataset, persisted metrics, 17 automated tests, real-model run |
+| Final presentation | Six-slide English deck, PDF export, and Turkish speaker script |
 
-- Embeddings: `qwen3-embedding-0.6b`
-- Chat: `qwen2.5-0.5b`
-- SDK: Microsoft Foundry Local SDK
+## Requirements
 
-Development fallback:
+- Python 3.11
+- Node.js 20 or newer
+- Microsoft Foundry Local supported on the host machine
+- Approximately 6 GB of free model storage
+- 16 GB unified/system memory recommended for the release chat model
+- Network access only for the first dependency/model download
 
-- Set `SUMMER_RAG_FORCE_FALLBACK=1`
-- Uses deterministic local hashing retrieval and extractive grounded snippets
-- Keeps tests and demos working even before Foundry Local models finish downloading
+The verified release setup uses WebGPU on an Apple M1 Pro with 16 GB memory. Foundry Local selects a compatible cached variant on other supported machines; set `TRACEFOLD_DEVICE=cpu` or `gpu` only when you need to override automatic selection.
 
-## Quick Start
-
-Use Python 3.11.
+## Quick start
 
 ```bash
 git clone https://github.com/fufuizm/summer-school-rag-agent.git
 cd summer-school-rag-agent
 
-python3.11 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements-dev.txt
-
-make test
+make bootstrap   # Python + frontend dependencies
+make models      # one-time Foundry Local model download and smoke test
+make seed-reset  # index the 8 synthetic demo documents
+make demo        # build UI and bind the complete app to localhost
 ```
 
-Run the local demo without waiting for model downloads:
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000). After `make models`, the core demo can run with the network disabled.
 
-```bash
-make api
+The `seed-reset` command intentionally replaces only Tracefold's local `data/tracefold.db` and `data/documents/` index. Use `make seed` to add any missing demo documents without resetting an existing index.
+
+Before a judged presentation, run `make demo-ready` once instead of `make seed-reset`. It rebuilds the synthetic corpus and persists a fresh real-model evaluation in the default local database, so **Quality** opens with measured results. This command is intentionally destructive to the current Tracefold demo index and can take several minutes on a cold model load.
+
+## Demo in 90 seconds
+
+1. Open **Setup** and show the exact Foundry Local model variants and device.
+2. Open **Library** and confirm eight documents and 53 chunks are indexed locally.
+3. Ask:
+
+   ```text
+   I will reach campus after 20:00 on arrival day. What must I do, and whom should I contact?
+   ```
+
+4. Open the citation drawer to inspect the Travel Guide and Accommodation Guide passages referenced by the validated answer. Those passages contain the required phone and email; the three-source coverage target applies to top-five retrieval, not to the final citation-chip count.
+5. Ask the negative case:
+
+   ```text
+   How much is the Northstar scholarship stipend?
+   ```
+
+6. Open **Quality** and run the checked-in 12-case evaluation.
+
+Expected refusal:
+
+```text
+I couldn't find enough evidence in the indexed documents to answer that.
 ```
 
-In a second terminal:
+## Commands
 
-```bash
-make web
-```
+| Command | Purpose |
+| --- | --- |
+| `make bootstrap` | Create `.venv`, install Python dependencies, run `npm ci` |
+| `make models` | Cache both release models and run embedding/chat smoke checks |
+| `make build` | Type-check and create the production frontend bundle |
+| `make seed` | Add missing synthetic demo documents to the local index |
+| `make seed-reset` | Rebuild the local demo index from scratch |
+| `make demo-ready` | Rebuild demo data and persist a fresh 12-case real-model quality run |
+| `make demo` | Serve the complete same-origin app at `127.0.0.1:8000` |
+| `make api` / `make web` | Run backend and Vite separately for development |
+| `make test` | Run deterministic backend tests and frontend production build |
+| `make eval` | Run the real 12-case evaluation in isolated `.tracefold-eval/` data |
 
-Open:
+The deterministic `TRACEFOLD_RUNTIME=fake` adapter is available only for automated tests. The user-facing runtime defaults to Foundry Local and exposes failures; there is no silent production fallback.
 
-- Frontend: http://localhost:3000
-- API docs: http://localhost:8000/docs
-
-For the real Foundry Local runtime, remove `SUMMER_RAG_FORCE_FALLBACK=1` and start the
-backend normally:
-
-```bash
-cd backend
-uvicorn main:app --reload --port 8000
-```
-
-The first real run downloads and loads the Foundry Local models.
-
-## Demo Flow
-
-1. Start backend and frontend.
-2. Upload `data/sample_project_guide.txt` in the Upload tab.
-3. Ask: `What is the Foundry Local RAG project about?`
-4. Upload `data/sample_students.csv`.
-5. Open Corrections and click Analyze.
-6. Approve safe project-standardization patches.
-7. Reject or leave manual identity/email fixes for human review.
-8. Export the corrected CSV.
-9. Open Audit to show the local event trail.
-
-## API Surface
+## API
 
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
-| `GET` | `/health` | Runtime, document, record, and correction status |
-| `POST` | `/api/upload/document` | Index a document for RAG |
-| `POST` | `/api/chat` | Ask a grounded question |
-| `GET` | `/api/documents` | List indexed documents |
-| `DELETE` | `/api/documents` | Clear local RAG index |
-| `POST` | `/api/upload/records` | Load CSV/XLSX records |
-| `POST` | `/api/correction/analyze` | Generate correction proposals |
-| `POST` | `/api/correction/approve` | Approve or reject a proposal |
-| `GET` | `/api/correction/export/{file_id}` | Download corrected CSV |
-| `GET` | `/api/audit` | Read recent audit events |
+| `GET` | `/health` | Service and local index counts |
+| `GET` | `/api/runtime` | Exact model, device, cache, load, and execution-provider state |
+| `POST` | `/api/documents` | Validate, parse, chunk, embed, and persist one document |
+| `GET` | `/api/documents` | List local sources and chunk counts |
+| `DELETE` | `/api/documents/{id}` | Delete one document and its chunks |
+| `DELETE` | `/api/documents` | Clear the local library |
+| `GET` | `/api/jobs/{id}` | Read the persisted ingestion outcome |
+| `POST` | `/api/chat` | Return a validated grounded answer as JSON |
+| `POST` | `/api/chat/stream` | Return retrieval metadata, then post-validation answer-token and citation SSE events |
+| `POST` | `/api/evaluations/run` | Run the built-in or a supplied evaluation set |
+| `GET` | `/api/evaluations/latest` | Read the latest persisted quality report |
 
-## Project Structure
+Document ingestion is intentionally synchronous in this single-user demonstration. A completed/failed job record is still persisted so the UI and API expose durable progress and errors without claiming a background queue.
+
+## Architecture
 
 ```text
-summer-school-rag-agent/
-  backend/
-    audit.py
-    correction.py
-    ingestion.py
-    main.py
-    rag.py
-  data/
-    sample_project_guide.txt
-    sample_students.csv
-  docs/
-    architecture.md
-    azure-container-apps.md
-    demo-script.md
-    evaluation.md
-  frontend/
-    app.js
-    index.html
-    style.css
-  tests/
-    test_rag.py
-  Dockerfile
-  docker-compose.yml
-  Makefile
-  requirements.txt
-  requirements-dev.txt
+React + TypeScript UI (same-origin localhost)
+            │
+         FastAPI
+            │
+   ┌────────┼───────────┐
+   │        │           │
+Parser   RAG policy   Evaluator
+   │        │           │
+   └── SQLite text + Float32 vectors
+            │
+       Foundry Local
+  qwen3 embedding + qwen2.5 chat
 ```
 
-## Docker
+See [docs/architecture.md](docs/architecture.md), [docs/privacy.md](docs/privacy.md), and [docs/evaluation.md](docs/evaluation.md) for implementation boundaries and acceptance evidence.
 
-```bash
-docker compose up --build
+## Project map
+
+```text
+backend/           FastAPI, Foundry runtime, parsing, RAG, SQLite, evaluation
+frontend/          React/TypeScript/Vite Tracefold product UI
+demo_docs/         8 synthetic documents safe for public demos
+docs/              architecture, evaluation, privacy, demo and talk track
+scripts/           model preparation and reproducible demo seeding
+tests/             deterministic unit and API contract tests
+presentation/      final PPTX/PDF deliverables
 ```
 
-Then open http://localhost:3000.
+## Privacy and limitations
 
-## Azure Credit Usage
+Tracefold binds to `127.0.0.1` and does not configure cloud inference, telemetry, web search, authentication, multi-user isolation, OCR, or persistent conversation memory. Image-only PDFs are rejected with an OCR hint. The local SQLite index is tied operationally to the configured embedding model; rebuild the index after changing that model. Treat document content as untrusted—the prompt instructs the model to ignore embedded instructions, but this demo is not a complete adversarial prompt-injection sandbox.
 
-Foundry Local runs on device, so the core project does not require cloud inference.
-The optional Azure story is deployment and presentation polish:
-
-- Containerize the FastAPI backend and static frontend.
-- Deploy to Azure Container Apps for a remote demo.
-- Keep the model-serving story local-first for privacy and cost control.
-
-See [docs/azure-container-apps.md](docs/azure-container-apps.md).
-
-## Testing
-
-```bash
-make test
-```
-
-The test suite forces fallback mode so it runs without downloading local LLM models.
-It covers document parsing, fallback RAG retrieval, correction detection, duplicate
-prevention, approval application, rejection persistence, and CSV export.
-
-## References
-
-- [Microsoft Learn: Build a RAG app with Foundry Local](https://learn.microsoft.com/en-us/azure/foundry-local/tutorials/tutorial-build-rag-app)
-- [Microsoft Learn: Foundry Local SDK reference](https://learn.microsoft.com/en-us/azure/foundry-local/reference/reference-sdk-current)
+All checked-in Northstar content is fictional. Do not commit private source documents or the generated local database.
 
 ## License
 
-MIT
+[MIT](LICENSE)
