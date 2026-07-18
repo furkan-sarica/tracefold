@@ -1,5 +1,41 @@
 export type View = "ask" | "library" | "setup" | "quality";
 
+export type TranslationDirection = "tr_to_en" | "en_to_tr";
+
+export interface TranslationModelStatus {
+  id?: string;
+  revision?: string;
+  cached?: boolean;
+  loaded?: boolean;
+}
+
+export interface TranslationStatus {
+  runtime?: string;
+  ready?: boolean;
+  offline_only?: boolean;
+  models?: Partial<Record<TranslationDirection, TranslationModelStatus | string>>;
+  glossary?: {
+    id?: string;
+    entries?: number;
+    scope?: string;
+  };
+  round_trip_threshold?: number;
+  error?: string | null;
+}
+
+export interface ManualLanguageReview {
+  status?: string;
+  verified?: boolean;
+  locale?: string;
+  reviewer?: string;
+  reviewer_type?: string;
+  reviewed_at?: string;
+  cases_reviewed?: number;
+  answers_sha256?: string;
+  criteria?: string[];
+  notes?: string;
+}
+
 export interface RuntimeStatus {
   status?: string;
   ready?: boolean;
@@ -15,6 +51,7 @@ export interface RuntimeStatus {
   message?: string;
   documents_indexed?: number;
   chunks_indexed?: number;
+  translation?: TranslationStatus;
 }
 
 export interface DocumentItem {

@@ -6,7 +6,6 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-
 SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".txt", ".md", ".markdown"}
 
 
@@ -41,7 +40,9 @@ class DocumentParser:
         extension = path.suffix.lower()
         if extension not in SUPPORTED_EXTENSIONS:
             supported = ", ".join(sorted(SUPPORTED_EXTENSIONS))
-            raise ValueError(f"Unsupported file type '{extension or 'unknown'}'. Supported: {supported}.")
+            raise ValueError(
+                f"Unsupported file type '{extension or 'unknown'}'. Supported: {supported}."
+            )
 
         if extension == ".pdf":
             blocks = self._pdf_blocks(path)

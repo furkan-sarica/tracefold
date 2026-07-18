@@ -4,6 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0d1b1d" />
+    <script>
+      (() => {
+        try {
+          const saved = JSON.parse(localStorage.getItem("tracefold.preferences.v1") || "{}");
+          const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+          const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+          const theme = saved.theme === "light" || saved.theme === "dark" ? saved.theme : dark ? "dark" : "light";
+          const motion = saved.motion === "full" || saved.motion === "reduced" ? saved.motion : reduced ? "reduced" : "full";
+          document.documentElement.dataset.theme = theme;
+          document.documentElement.dataset.motion = motion;
+          document.documentElement.lang = saved.language === "tr" ? "tr" : "en";
+          document.documentElement.style.colorScheme = theme;
+        } catch { /* Preferences are optional; React applies safe defaults. */ }
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="description" content="Tracefold — private, source-grounded answers powered by Foundry Local." />
     <meta property="og:type" content="website" />

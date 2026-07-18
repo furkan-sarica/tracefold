@@ -4,14 +4,10 @@ __pycache__/
 *.egg-info/
 .env
 .DS_Store
-data/audit.db
-data/rag_index.json
 data/tracefold.db
 data/tracefold.db-*
 data/documents/*
-data/uploads/*
 !data/documents/.gitkeep
-!data/uploads/.gitkeep
 .venv/
 venv/
 .coverage
@@ -21,7 +17,10 @@ htmlcov/
 *.log
 frontend/node_modules/
 frontend/dist/
+frontend/playwright-report/
+frontend/test-results/
 frontend/*.tsbuildinfo
 frontend/vite.config.js
 frontend/vite.config.d.ts
 .tracefold-eval/
+.tracefold-eval-*/

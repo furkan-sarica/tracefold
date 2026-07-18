@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import os
 import shutil
 import sys
 from pathlib import Path
-
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "backend"))
@@ -29,7 +29,24 @@ def reset_data(data_dir: Path) -> None:
         path.unlink(missing_ok=True)
     documents_dir = data_dir / "documents"
     if documents_dir.exists():
-        shutil.rmtree(documents_dir)
+        for path in documents_dir.iterdir():
+            if path.name == ".gitkeep":
+                continue
+            if path.is_dir():
+                shutil.rmtree(path)
+            else:
+                path.unlink()
+
+
+def require_complete_evaluation(result: dict) -> None:
+    metrics = result.get("metrics") or {}
+    passed = int(metrics.get("passed_cases") or 0)
+    total = int(metrics.get("total_cases") or 0)
+    if total < 1 or passed != total:
+        raise RuntimeError(
+            f"Release evaluation failed: {passed}/{total} cases passed. "
+            "Inspect the JSON report and do not publish this candidate."
+        )
 
 
 def main() -> None:
@@ -48,7 +65,12 @@ def main() -> None:
     parser.add_argument(
         "--evaluate",
         action="store_true",
-        help="Run the checked-in 12-case evaluation after indexing.",
+        help="Run the checked-in bilingual evaluation after indexing.",
+    )
+    parser.add_argument(
+        "--report-json",
+        type=Path,
+        help="Write the complete measured evaluation report as reproducible JSON.",
     )
     args = parser.parse_args()
 
@@ -98,7 +120,12 @@ def main() -> None:
         f"ready  {counts['documents']} documents / {counts['chunks']} chunks "
         f"({indexed} indexed, {skipped} skipped)"
     )
-    print(runtime.status(probe=False))
+    print(
+        {
+            **runtime.status(probe=False),
+            "translation": rag.translation.status(probe=False),
+        }
+    )
 
     if args.evaluate:
         dataset = load_evaluation_dataset(
@@ -111,6 +138,15 @@ def main() -> None:
             dataset_id=dataset.get("dataset_id"),
         )
         print("evaluation", result["id"], result["metrics"])
+        if args.report_json:
+            report_path = args.report_json.expanduser().resolve()
+            report_path.parent.mkdir(parents=True, exist_ok=True)
+            report_path.write_text(
+                json.dumps(result, indent=2, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+            print(f"report {report_path}")
+        require_complete_evaluation(result)
 
 
 if __name__ == "__main__":

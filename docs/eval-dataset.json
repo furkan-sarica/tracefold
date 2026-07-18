@@ -1,12 +1,21 @@
 {
-  "schema_version": "1.0",
-  "dataset_id": "northstar-summer-lab-2026-v1",
-  "description": "Synthetic evaluation set for the Tracefold local RAG demo.",
+  "schema_version": "1.2",
+  "dataset_id": "northstar-summer-lab-2026-bilingual-parity-v3",
+  "description": "Synthetic bilingual evaluation set for the Tracefold local RAG demo.",
   "standard_refusal": "I couldn't find enough evidence in the indexed documents to answer that.",
+  "standard_refusals": {
+    "en": "I couldn't find enough evidence in the indexed documents to answer that.",
+    "tr": "Kütüphanenizde bu soruyu yanıtlamak için yeterli kanıt bulamadım."
+  },
+  "supported_locales": [
+    "en",
+    "tr"
+  ],
   "default_top_k": 5,
   "cases": [
     {
       "id": "NSL-A01",
+      "locale": "en",
       "type": "answerable",
       "category": "single_source_fact",
       "question": "When and where does Northstar Summer Lab 2026 take place?",
@@ -22,6 +31,7 @@
     },
     {
       "id": "NSL-A02",
+      "locale": "en",
       "type": "answerable",
       "category": "multi_document_procedure",
       "question": "I will reach campus after 20:00 on arrival day. What must I do, and whom should I contact?",
@@ -41,6 +51,7 @@
     },
     {
       "id": "NSL-A03",
+      "locale": "en",
       "type": "answerable",
       "category": "single_source_requirements",
       "question": "What laptop specifications should I prepare for the lab?",
@@ -58,6 +69,7 @@
     },
     {
       "id": "NSL-A04",
+      "locale": "en",
       "type": "answerable",
       "category": "multi_document_policy",
       "question": "What happens if I miss the mandatory safety induction?",
@@ -74,6 +86,7 @@
     },
     {
       "id": "NSL-A05",
+      "locale": "en",
       "type": "answerable",
       "category": "multi_document_timeline",
       "question": "I booked the 12:30 departure shuttle on 15 August. How do checkout and luggage storage work?",
@@ -90,6 +103,7 @@
     },
     {
       "id": "NSL-A06",
+      "locale": "en",
       "type": "answerable",
       "category": "multi_document_safety_and_conduct",
       "question": "If threatening conduct creates immediate danger, what must I do first, and how do I report the conduct afterward? Include the exact contacts.",
@@ -108,6 +122,7 @@
     },
     {
       "id": "NSL-A07",
+      "locale": "en",
       "type": "answerable",
       "category": "single_source_event",
       "question": "When is the evacuation drill, and where should people in Orion Building assemble?",
@@ -123,6 +138,7 @@
     },
     {
       "id": "NSL-A08",
+      "locale": "en",
       "type": "answerable",
       "category": "cross_reference_deadlines",
       "question": "What must I return with a loan laptop, and how does that deadline relate to the team handoff?",
@@ -138,6 +154,7 @@
     },
     {
       "id": "NSL-U01",
+      "locale": "en",
       "type": "unanswerable",
       "category": "real_time_information",
       "question": "What will the temperature and weather be at 09:00 on 3 August?",
@@ -149,6 +166,7 @@
     },
     {
       "id": "NSL-U02",
+      "locale": "en",
       "type": "unanswerable",
       "category": "missing_financial_fact",
       "question": "How much is the Northstar scholarship stipend?",
@@ -160,6 +178,7 @@
     },
     {
       "id": "NSL-U03",
+      "locale": "en",
       "type": "unanswerable",
       "category": "missing_live_travel_fact",
       "question": "What is the current A2 airport coach fare?",
@@ -171,6 +190,7 @@
     },
     {
       "id": "NSL-U04",
+      "locale": "en",
       "type": "unanswerable",
       "category": "missing_merchandise_fact",
       "question": "What color is the participant T-shirt?",
@@ -178,6 +198,203 @@
       "required_facts": [],
       "reason_unanswerable": "The corpus does not mention a participant T-shirt or its color.",
       "expected_answer_snippet": "I couldn't find enough evidence in the indexed documents to answer that.",
+      "must_refuse": true
+    },
+    {
+      "id": "NSL-TR-A01",
+      "paired_case_id": "NSL-A01",
+      "locale": "tr",
+      "type": "answerable",
+      "category": "single_source_fact",
+      "question": "Northstar Summer Lab 2026 ne zaman ve nerede yapılacak?",
+      "expected_sources": [
+        "01-program-handbook.md"
+      ],
+      "required_facts": [
+        "Program 3 Ağustos ile 14 Ağustos 2026 tarihleri arasında yapılacaktır.",
+        "Programın adresi Meridian Innovation Campus, Orion Building, 42 Polaris Avenue, Ankara'dır."
+      ],
+      "expected_answer_snippet": "3-14 Ağustos 2026, Meridian Innovation Campus, Orion Building, 42 Polaris Avenue, Ankara",
+      "must_refuse": false
+    },
+    {
+      "id": "NSL-TR-A02",
+      "paired_case_id": "NSL-A02",
+      "locale": "tr",
+      "type": "answerable",
+      "category": "multi_document_procedure",
+      "question": "Varış günü kampüse saat 20:00'den sonra ulaşacağım. Ne yapmalıyım ve kiminle iletişime geçmeliyim?",
+      "expected_sources": [
+        "03-travel-guide.md",
+        "04-accommodation-guide.md",
+        "08-contacts-directory.md"
+      ],
+      "required_facts": [
+        "Geç anahtar teslimini ayarlamak için saat 19:30'dan önce +90 312 555 0149 numaralı Yurt Nöbet Telefonu aranmalıdır.",
+        "Güncellenen varış saati program@northstar.example adresine e-posta gönderilerek Program Ofisine bildirilmelidir."
+      ],
+      "expected_answer_snippet": "19:30'dan önce +90 312 555 0149 numaralı telefonu arayın ve güncellenen varış saatinizi program@northstar.example adresine bildirin",
+      "must_refuse": false
+    },
+    {
+      "id": "NSL-TR-A03",
+      "paired_case_id": "NSL-A03",
+      "locale": "tr",
+      "type": "answerable",
+      "category": "single_source_requirements",
+      "question": "Laboratuvar için hazırlayacağım dizüstü bilgisayar hangi özelliklere sahip olmalı?",
+      "expected_sources": [
+        "06-equipment-guide.md"
+      ],
+      "required_facts": [
+        "Önerilen en az bellek 16 GB RAM'dir.",
+        "Sistem güncellemelerinden sonra 60 GB boş depolama alanı bulunmalıdır.",
+        "Wi-Fi 5 veya daha yeni bir sürüm, çalışan bir tarayıcı ve USB bağlantı noktası gerekir.",
+        "Yazılım ve yerel geliştirme araçlarını yükleme izni gerekir."
+      ],
+      "expected_answer_snippet": "16 GB RAM, 60 GB boş depolama, Wi-Fi 5 veya daha yenisi, tarayıcı, USB bağlantı noktası ve yazılım yükleme izni",
+      "must_refuse": false
+    },
+    {
+      "id": "NSL-TR-A04",
+      "paired_case_id": "NSL-A04",
+      "locale": "tr",
+      "type": "answerable",
+      "category": "multi_document_policy",
+      "question": "Zorunlu güvenlik oryantasyonuna katılamazsam ne olur?",
+      "expected_sources": [
+        "01-program-handbook.md",
+        "05-safety-guide.md"
+      ],
+      "required_facts": [
+        "Katılımcı yalnızca yazılım çalışmasına devam edebilir.",
+        "Güvenlik Sorumlusuyla telafi oryantasyonunu tamamlayana kadar Üretim Atölyesine giremez."
+      ],
+      "expected_answer_snippet": "Yalnızca yazılım çalışmasına devam edin ve Üretim Atölyesine girmeden önce Güvenlik Sorumlusuyla telafi oryantasyonu yapın",
+      "must_refuse": false
+    },
+    {
+      "id": "NSL-TR-A05",
+      "paired_case_id": "NSL-A05",
+      "locale": "tr",
+      "type": "answerable",
+      "category": "multi_document_timeline",
+      "question": "15 Ağustos'taki 12:30 kalkışlı servise yer ayırttım. Oda çıkışı ve bagaj muhafazası nasıl işliyor?",
+      "expected_sources": [
+        "03-travel-guide.md",
+        "04-accommodation-guide.md"
+      ],
+      "required_facts": [
+        "Oda çıkışı ve anahtar teslimi saat 10:00'a kadar tamamlanmalıdır.",
+        "Oda çıkışından sonra etiketli bagaj zemin kattaki muhafaza odasında saat 12:15'e kadar bırakılabilir."
+      ],
+      "expected_answer_snippet": "10:00'a kadar oda çıkışı yapıp anahtarı teslim edin; etiketli bagajı zemin kattaki odada 12:15'e kadar bırakın",
+      "must_refuse": false
+    },
+    {
+      "id": "NSL-TR-A06",
+      "paired_case_id": "NSL-A06",
+      "locale": "tr",
+      "type": "answerable",
+      "category": "multi_document_safety_and_conduct",
+      "question": "Tehdit edici bir davranış acil tehlike oluşturuyorsa önce ne yapmalıyım, ardından davranışı nasıl bildirmeliyim? Tam iletişim bilgilerini ekleyin.",
+      "expected_sources": [
+        "05-safety-guide.md",
+        "07-code-of-conduct.md",
+        "08-contacts-directory.md"
+      ],
+      "required_facts": [
+        "Gizli davranış bildiriminden önce acil durum prosedürü uygulanmalıdır.",
+        "Kampüs acil durum dahili numarası 5555 veya mobil telefon numarası +90 312 555 0155 aranmalıdır.",
+        "Acil güvenlik sağlandıktan sonra conduct@northstar.example adresine e-posta gönderilerek Davranış Sorumlusuna bildirim yapılabilir."
+      ],
+      "expected_answer_snippet": "Önce 5555 veya +90 312 555 0155 numaralı telefonu arayın; güvenli olduğunda conduct@northstar.example adresine bildirin",
+      "must_refuse": false
+    },
+    {
+      "id": "NSL-TR-A07",
+      "paired_case_id": "NSL-A07",
+      "locale": "tr",
+      "type": "answerable",
+      "category": "single_source_event",
+      "question": "Tahliye tatbikatı ne zaman yapılacak ve Orion Building'deki kişiler nerede toplanmalı?",
+      "expected_sources": [
+        "05-safety-guide.md"
+      ],
+      "required_facts": [
+        "Planlanan tahliye tatbikatı 4 Ağustos Salı günü saat 11:30'dadır.",
+        "Orion Building'deki kişiler mavi işaret lambasının yanındaki North Lawn'da toplanmalıdır."
+      ],
+      "expected_answer_snippet": "4 Ağustos Salı saat 11:30, mavi işaret lambasının yanındaki North Lawn",
+      "must_refuse": false
+    },
+    {
+      "id": "NSL-TR-A08",
+      "paired_case_id": "NSL-A08",
+      "locale": "tr",
+      "type": "answerable",
+      "category": "cross_reference_deadlines",
+      "question": "Ödünç dizüstü bilgisayarla birlikte neleri iade etmeliyim ve bu son tarih ekip teslimiyle nasıl ilişkili?",
+      "expected_sources": [
+        "06-equipment-guide.md"
+      ],
+      "required_facts": [
+        "Ödünç dizüstü bilgisayar, şarj cihazı ve kılıf 14 Ağustos Cuma günü saat 17:30'a kadar iade edilmelidir.",
+        "Ekip teslimi 14 Ağustos saat 17:00'de, ekipman iade son tarihinden 30 dakika öncedir."
+      ],
+      "expected_answer_snippet": "Ekip teslimi 17:00'de; dizüstü bilgisayarı, şarj cihazını ve kılıfı 17:30'a kadar iade edin",
+      "must_refuse": false
+    },
+    {
+      "id": "NSL-TR-U01",
+      "paired_case_id": "NSL-U01",
+      "locale": "tr",
+      "type": "unanswerable",
+      "category": "real_time_information",
+      "question": "3 Ağustos saat 09:00'da hava sıcaklığı ve hava durumu nasıl olacak?",
+      "expected_sources": [],
+      "required_facts": [],
+      "reason_unanswerable": "Belgelerde hava tahmini veya canlı hava durumu bulunmuyor.",
+      "expected_answer_snippet": "Kütüphanenizde bu soruyu yanıtlamak için yeterli kanıt bulamadım.",
+      "must_refuse": true
+    },
+    {
+      "id": "NSL-TR-U02",
+      "paired_case_id": "NSL-U02",
+      "locale": "tr",
+      "type": "unanswerable",
+      "category": "missing_financial_fact",
+      "question": "Northstar bursunun tutarı ne kadar?",
+      "expected_sources": [],
+      "required_facts": [],
+      "reason_unanswerable": "Belgelerde burs veya burs tutarı bulunmuyor.",
+      "expected_answer_snippet": "Kütüphanenizde bu soruyu yanıtlamak için yeterli kanıt bulamadım.",
+      "must_refuse": true
+    },
+    {
+      "id": "NSL-TR-U03",
+      "paired_case_id": "NSL-U03",
+      "locale": "tr",
+      "type": "unanswerable",
+      "category": "missing_live_travel_fact",
+      "question": "A2 havalimanı otobüsünün güncel ücreti ne kadar?",
+      "expected_sources": [],
+      "required_facts": [],
+      "reason_unanswerable": "Seyahat Rehberi hattı belirtir ancak güncel saat ve ücret bilgisi içermez.",
+      "expected_answer_snippet": "Kütüphanenizde bu soruyu yanıtlamak için yeterli kanıt bulamadım.",
+      "must_refuse": true
+    },
+    {
+      "id": "NSL-TR-U04",
+      "paired_case_id": "NSL-U04",
+      "locale": "tr",
+      "type": "unanswerable",
+      "category": "missing_merchandise_fact",
+      "question": "Katılımcı tişörtünün rengi nedir?",
+      "expected_sources": [],
+      "required_facts": [],
+      "reason_unanswerable": "Belgelerde katılımcı tişörtü veya rengi belirtilmiyor.",
+      "expected_answer_snippet": "Kütüphanenizde bu soruyu yanıtlamak için yeterli kanıt bulamadım.",
       "must_refuse": true
     }
   ]

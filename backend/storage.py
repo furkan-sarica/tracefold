@@ -2,18 +2,20 @@
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import sqlite3
 import struct
 import threading
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 
 def utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def encode_embedding(values: list[float]) -> bytes:
@@ -24,6 +26,29 @@ def decode_embedding(blob: bytes, dimensions: int) -> list[float]:
     if len(blob) != dimensions * 4:
         raise ValueError("Stored embedding size does not match its dimensions.")
     return list(struct.unpack(f"<{dimensions}f", blob))
+
+
+def review_answers_sha256(cases: list[dict[str, Any]]) -> str:
+    """Digest the exact Turkish case set covered by a manual release review."""
+
+    reviewed_answers = [
+        {
+            "id": str(case.get("id") or ""),
+            "question": str(case.get("question") or ""),
+            "answer": str(case.get("answer") or ""),
+            "passed": case.get("passed") is True,
+        }
+        for case in cases
+        if str(case.get("locale") or "").casefold().startswith("tr")
+    ]
+    return hashlib.sha256(
+        json.dumps(
+            reviewed_answers,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
 
 
 class TracefoldStore:
@@ -215,7 +240,9 @@ class TracefoldStore:
         results = []
         for row in rows:
             item = dict(row)
-            item["embedding"] = decode_embedding(item.pop("embedding"), item["embedding_dimensions"])
+            item["embedding"] = decode_embedding(
+                item.pop("embedding"), item["embedding_dimensions"]
+            )
             results.append(item)
         return results
 
@@ -235,6 +262,16 @@ class TracefoldStore:
             )
         return run_id
 
+    def update_evaluation_metrics(self, run_id: str, metrics: dict[str, Any]) -> bool:
+        """Replace one run's metrics after an explicit release-review annotation."""
+
+        with self._connect() as db:
+            cursor = db.execute(
+                "UPDATE evaluation_runs SET metrics_json=? WHERE id=?",
+                (json.dumps(metrics), run_id),
+            )
+        return cursor.rowcount == 1
+
     def latest_evaluation(self) -> dict[str, Any] | None:
         with self._connect() as db:
             row = db.execute(
@@ -242,11 +279,20 @@ class TracefoldStore:
             ).fetchone()
         if not row:
             return None
+        metrics = json.loads(row["metrics_json"])
+        cases = json.loads(row["cases_json"])
+        review = (metrics.get("run_context") or {}).get("manual_language_review")
+        if isinstance(review, dict):
+            expected_digest = str(review.get("answers_sha256") or "")
+            review["verified"] = bool(expected_digest) and hmac.compare_digest(
+                expected_digest,
+                review_answers_sha256(cases),
+            )
         return {
             "id": row["id"],
             "status": "complete",
-            "metrics": json.loads(row["metrics_json"]),
-            "cases": json.loads(row["cases_json"]),
+            "metrics": metrics,
+            "cases": cases,
             "created_at": row["created_at"],
-            **json.loads(row["metrics_json"]),
+            **metrics,
         }

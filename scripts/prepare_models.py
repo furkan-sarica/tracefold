@@ -7,11 +7,18 @@ questions with the network disabled.
 from __future__ import annotations
 
 import argparse
+import gc
 import os
+import sys
 from collections.abc import Iterable
+from pathlib import Path
 
 from foundry_local_sdk import Configuration, FoundryLocalManager
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT / "backend"))
+
+from translation import MarianTranslationEngine  # noqa: E402
 
 DEFAULT_EMBEDDING_MODEL = "qwen3-embedding-0.6b"
 DEFAULT_CHAT_MODEL = "qwen2.5-7b"
@@ -34,11 +41,9 @@ def progress(label: str):
 
 
 def select_variant(model, *, prefer_gpu: bool, registered_eps: Iterable[str]):
-    """Pick a cached variant first, then the best supported device variant."""
+    """Pick a cached variant on the requested device, then download that device."""
 
     variants = list(model.variants)
-    cached = [variant for variant in variants if variant.is_cached]
-    candidates = cached or variants
     registered = set(registered_eps)
 
     def device(variant) -> str:
@@ -46,15 +51,19 @@ def select_variant(model, *, prefer_gpu: bool, registered_eps: Iterable[str]):
         value = getattr(getattr(runtime, "device_type", None), "value", "")
         return str(value).upper()
 
-    if prefer_gpu and WEBGPU_EP in registered:
-        selected = next((variant for variant in candidates if device(variant) == "GPU"), None)
-        if selected is not None:
-            model.select_variant(selected)
-            return model
+    gpu_candidates = [variant for variant in variants if device(variant) == "GPU"]
+    cpu_candidates = [variant for variant in variants if device(variant) == "CPU"]
 
-    selected = next((variant for variant in candidates if device(variant) == "CPU"), None)
-    if selected is None:
-        selected = candidates[0]
+    if prefer_gpu and WEBGPU_EP in registered and gpu_candidates:
+        candidates = gpu_candidates
+    else:
+        candidates = cpu_candidates
+
+    if not candidates:
+        requested = "GPU" if prefer_gpu and WEBGPU_EP in registered else "CPU"
+        raise RuntimeError(f"No {requested} model variant is available for {model.id}.")
+
+    selected = next((variant for variant in candidates if variant.is_cached), candidates[0])
     model.select_variant(selected)
     return model
 
@@ -107,6 +116,13 @@ def main() -> None:
             model.download(progress(alias))
         print(f"Cached at {model.get_path()}")
         models.append(model)
+
+    print("Preparing pinned offline English-Turkish translation models...")
+    translation = MarianTranslationEngine(local_files_only=False)
+    translation.prepare(smoke=not args.skip_smoke)
+    print("Translation models:", translation.status(probe=False))
+    del translation
+    gc.collect()
 
     if args.skip_smoke:
         return

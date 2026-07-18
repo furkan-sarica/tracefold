@@ -1,53 +1,61 @@
 # Tracefold — 5 Dakikalık Türkçe Sunum Metni
 
-Bu metin altı İngilizce slaytla uyumludur. Hedef süre yaklaşık 5 dakikadır. Köşeli parantez içindeki notlar sahne yönlendirmesidir; okunmaz.
+Bu metin altı İngilizce slaytla uyumludur. Hedef süre yaklaşık beş dakikadır. Köşeli parantez içindeki ifadeler sahne yönlendirmesidir; sesli okunmaz.
 
 ## Slide 1 — Tracefold: Answers You Can Trace — 0:00–0:40
 
-Merhaba, bugün size Tracefold'u göstereceğim. Tracefold, yüklediğimiz belgeleri cihazdan çıkarmadan yanıtlayan ve her iddiayı açılabilir bir kaynakla ilişkilendiren yerel bir RAG uygulaması.
+Merhaba, bugün size Tracefold'u göstereceğim. Tracefold, belgeler cihazdan ayrılmadan İngilizce ve Türkçe soruları yanıtlayan, her olgusal cümleyi açılabilir bir kanıtla ilişkilendiren yerel bir RAG uygulaması.
 
-Bu projede çözmek istediğim problem şu: Bir sohbet modeli çok akıcı konuşabilir, fakat belge içindeki cevabı gerçekten bulduğunu nasıl anlayacağız? Tracefold'un yaklaşımı, yalnızca güzel bir cevap üretmek değil; cevabın hangi belgeye, hangi bölüme ve hangi metin parçasına dayandığını görünür hâle getirmek. Bu nedenle sloganımız: “Answers you can trace.”
+Çözmek istediğim sorun şu: Bir sohbet modeli son derece akıcı bir yanıt verebilir; peki bu yanıtın gerçekten belgelere dayandığını nasıl anlayacağız? Tracefold yalnızca güzel bir yanıt üretmiyor. Yanıtın hangi belgeye, hangi bölüme ve hangi metin parçasına dayandığını görünür kılıyor. Sloganımız da bu nedenle “Answers you can trace”, yani “kaynağını izleyebileceğiniz yanıtlar”.
 
 ## Slide 2 — The Problem: Private Documents, Unverifiable Answers — 0:40–1:20
 
-Klasik belge asistanlarında üç temel risk var. Birincisi gizlilik: belge ve soru buluta gönderilebilir. İkincisi halüsinasyon: model, kaynakta olmayan bir bilgiyi ikna edici biçimde uydurabilir. Üçüncüsü ise denetlenebilirlik: kullanıcı yanıtın dayanağını kolayca göremez.
+Belge asistanlarında üç temel risk var. Birincisi gizlilik: Belgeler ve sorular uzaktaki bir hizmete gönderilebilir. İkincisi halüsinasyon: Model, kaynakta bulunmayan bir bilgiyi ikna edici biçimde uydurabilir. Üçüncüsü denetlenebilirlik: Kullanıcı, yanıtın dayanağını kolayca göremeyebilir.
 
-Tracefold bu üç riski birlikte ele alıyor. Hem embedding hem de cevap modeli Microsoft Foundry Local üzerinden bu cihazda çalışıyor. Kaynak bulunmadığında cevap üretmeye zorlamak yerine açıkça “yeterli kanıt bulamadım” diyor. Kaynak bulunduğunda ise citation'a tıklayıp kullanılan gerçek pasajı görebiliyoruz.
+Tracefold bu üç riski birlikte ele alıyor. Bilgi getirme için `qwen3-embedding-0.6b`, kanıta dayalı İngilizce iddialar için `qwen2.5-7b` Microsoft Foundry Local aracılığıyla bu cihazda çalışıyor. Türkçe ile İngilizce arasındaki kontrollü çeviriyi ise iki ayrı OPUS-MT modeli, yine yerel çalışma ortamında yapıyor. Yeterli kanıt bulunamadığında modeli yanıt vermeye zorlamak yerine güvenli ret uyguluyor. Kanıt bulunduğunda ise atfa tıklayıp kullanılan metin parçasını doğrudan inceleyebiliyoruz.
 
 ## Slide 3 — Local RAG Architecture — 1:20–2:15
 
 [Mimari diyagramını göster.]
 
-Akış belge yüklemeyle başlıyor. FastAPI, PDF, DOCX, Markdown veya metin dosyasını ayrıştırıyor; başlık ve sayfa gibi kaynak bilgisini koruyarak yaklaşık iki yüz kırk tokenlık, bölüm sınırlarını aşmayan parçalara bölüyor. Her parça Foundry Local embedding modeliyle vektöre çevriliyor.
+FastAPI belgeleri ayrıştırıyor; başlık ve sayfa bilgisini koruyarak metni yaklaşık 240 token içeren, bölüm sınırlarını aşmayan parçalara ayırıyor. Metinler, üst veriler ve `qwen3-embedding-0.6b` vektörleri SQLite'ta saklanıyor.
 
-Metinler, metadata ve Float32 vektörler tek bir SQLite veritabanında saklanıyor. Kullanıcı soru sorduğunda soru da yerel olarak embed ediliyor, cosine similarity ile en yakın beş parça seçiliyor. Sabit ve versiyonlanmış abstention kuralı kanıtın yeterli olup olmadığına generation'dan önce karar veriyor. Kanıt yeterliyse yerel chat modeli yalnızca bu pasajlarla cevap üretiyor; citation kimlikleri son kez doğrulanıyor. Tüm sorgu yolu localhost ve yerel dosyalar içinde kalıyor.
+İngilizce soru doğrudan bilgi getirmeye giriyor. Türkçe soruda tarih, saat, telefon ve e-posta gibi değerler koruma belirteçleriyle maskeleniyor; Northstar sözlüğü terimleri sabitliyor ve `opus-mt-tc-big-tr-en` soruyu İngilizceye çeviriyor. Bilgi getirme, özgün Türkçe soru ile denetimden geçen İngilizce çeviriyi birlikte kullanıyor. Bir belirteç değişir veya anlam denetimi başarısız olursa sistem güvenli ret veriyor.
+
+Kosinüs benzerliğiyle en yakın beş metin parçası bulunuyor. Kanıt yeterliyse `qwen2.5-7b` İngilizce iddialar üretiyor. İddialar ve atıflar doğrulandıktan sonra `opus-mt-tc-big-en-tr` yalnızca iddia metnini çeviriyor; atıflar cümle eşlemesinden yeniden kuruluyor. Ters çeviri, kritik olgu ve dil kontrolleri geçilmeden Türkçe yanıt gösterilmiyor. Bütün akış cihazda kalıyor.
 
 ## Slide 4 — Product Demo: From Documents to Evidence — 2:15–3:15
 
 [Library ekranını, ardından Ask ekranını göster.]
 
-Demo için Northstar Summer Lab adlı tamamen kurmaca bir programa ait sekiz belge hazırladım. Handbook, program, seyahat, konaklama, güvenlik, ekipman, davranış kuralları ve iletişim rehberi birbirini tamamlıyor.
+Demo için Northstar Summer Lab adlı kurmaca bir programa ait, birbirini tamamlayan sekiz belge hazırladım.
 
-Şimdi şu soruyu soruyorum: “Varış günü saat yirmiden sonra kampüse ulaşacağım; ne yapmalıyım ve kime ulaşmalıyım?” Bu basit bir anahtar kelime sorusu değil. Eval, top-five retrieval içinde seyahat, konaklama ve iletişim kaynaklarının bulunmasını kontrol ediyor. Son doğrulanmış cevap ise yalnızca gerçekten referans verdiği Travel ve Accommodation pasajlarını gösteriyor; gerekli telefon ve e-posta bu pasajlarda zaten yer alıyor.
+Önce İngilizce olarak, varış günü saat yirmiden sonra kampüse ulaşacağımı, bu durumda ne yapıp kiminle iletişime geçmem gerektiğini soruyorum. Değerlendirme, ilk beş sonuçta seyahat, konaklama ve iletişim kaynaklarını arıyor. Yanıtta ise yalnızca kullanılan kanıtlara atıf veriliyor.
 
-[Citation panelini aç.]
+[Atıf panelini aç.]
 
-Tracefold, Residence Duty Phone'u on dokuz otuzdan önce aramam ve Program Office'e yeni varış saatini bildirmem gerektiğini söylüyor. Her citation'ın dosyasını, metin parçasını ve benzerlik skorunu burada açabiliyorum.
+Tracefold, Yurt Nöbet Telefonu numarasının saat on dokuz otuzdan önce aranması ve Program Ofisine yeni varış saatinin bildirilmesi gerektiğini söylüyor. Her atfın dosyasını, metin parçasını ve benzerlik puanını burada görebiliyorum.
+
+[Arayüz dilini Türkçeye çevir ve eşdeğer soruyu sor.]
+
+Aynı soruyu Türkçe sorduğumda saat, telefon ve e-posta aynen korunuyor. Atıflar çeviri modeline yazdırılmıyor; doğrulanan İngilizce cümlelerle olan eşlemeden yeniden kuruluyor. Türkçe burada yalnızca arayüz değil; soru, bilgi getirme, yanıt, atıf ve güvenli ret akışlarının tamamını kapsıyor.
 
 ## Slide 5 — Quality: Retrieval, Citations, and Refusal — 3:15–4:15
 
-Kaliteyi sadece “cevap iyi görünüyor” diye değerlendirmiyoruz. Repoda sekizi cevaplanabilir, dördü bilinçli olarak cevaplanamaz toplam on iki soruluk bir eval seti var. Bunların içinde birden fazla belge gerektiren senaryolar da bulunuyor.
+Kaliteyi yalnızca “yanıt iyi görünüyor” diyerek değerlendirmiyoruz. On iki İngilizce senaryonun her biriyle Türkçe eşdeğeri bire bir eşleşiyor: toplam yirmi dört senaryo. Her dilde sekiz soru yanıtlanabilir; dört soru güvenli ret gerektiriyor.
 
-Ölçtüğümüz başlıca değerler retrieval Hit@5, çoklu kaynak kapsaması, citation geçerliliği, kaynakla desteklenen olgular ve negatif sorulardaki doğru refusal oranı. Ayrıca warm retrieval süresini ve tek seferlik model warm-up maliyetini kaydediyoruz. Ham ilk-token süresini release sonucu olarak sunmuyoruz; mevcut SSE yolu tam cevabı ve citation kimliklerini doğruladıktan sonra kelime parçalarını arayüze gönderiyor.
+Bilgi getirme, kaynak kapsamı, atıf geçerliliği, kritik olgular ve güvenli ret doğruluğunu ölçüyoruz. Türkçede bunlara belirteçlerin dönmesi, atıfların kurulması, ters çeviri tutarlılığı ve dil kalitesi ekleniyor. Sonuçları dil bazında ve on iki eşleştirilmiş senaryo üzerinden izliyoruz.
 
-[Quality ekranında targets ve measured ayrımını göster.]
+[Quality ekranında hedefler ile ölçülmüş sonuçların ayrımını göster.]
 
-Burada önemli bir dürüstlük kuralımız var: hedefleri ölçülmüş sonuç gibi sunmuyoruz. Sonuç ancak model adı, kod durumu, donanım ve konfigürasyonla birlikte gerçek Foundry Local çalışmasından geldiyse “measured” olarak gösteriliyor. Son release çalışmasında on iki vakanın on ikisi geçti; Hit@5, beklenen kaynak kapsamı, citation geçerliliği ve negatif refusal yüzde yüz, warm retrieval p95 ise yaklaşık doksan altı milisaniye ölçüldü. Örneğin burs miktarı kaynaklarda yoksa sistem rakam uydurmak yerine standart refusal mesajını döndürüyor.
+Hedefleri ölçülmüş sonuç gibi sunmuyoruz. Bir çalışmayı ancak veri kümesi ve dört modelin kimliği, bilgi getirme ve çeviri ayarları, Git commit kimliği ve temiz çalışma ağacıyla birlikte kaydedildiyse kabul ediyoruz. Ekrandaki sayılar son kabul edilen `docs/evaluation-report.json` dosyasından geliyor.
+
+Burs tutarı gibi belgelerde bulunmayan bir bilgi sorulduğunda Tracefold rakam uydurmuyor; Türkçe olarak “Kütüphanenizde bu soruyu yanıtlamak için yeterli kanıt bulamadım” diyor.
 
 ## Slide 6 — Why Tracefold — 4:15–5:00
 
-Tracefold, istenen yerel RAG zincirinin tamamını çalışır bir ürün deneyimine dönüştürüyor: belge alma, chunking, yerel embedding, SQLite vektör saklama, cosine retrieval, kaynaklı generation, deterministic abstention, eval ve çevrimdışı çalışma.
+Tracefold; belge alma, yerel vektörleştirme, SQLite'ta saklama, bilgi getirme, kaynağa dayalı yanıt, kontrollü çeviri, güvenli ret ve iki dilli değerlendirmeyi tek bir çevrimdışı ürün deneyiminde birleştiriyor.
 
-Bunun üzerine üç önemli özellik ekliyor: kullanıcı citation'ın arkasındaki kanıtı gerçekten inceleyebiliyor; model veya runtime problemi gizli fallback ile maskelenmiyor; kalite hedefleri ile ölçülmüş sonuçlar birbirinden açıkça ayrılıyor.
+Kullanıcı atfın arkasındaki kanıtı inceleyebiliyor; model sorunu gizli bir yedek akışla maskelenmiyor; hedefler, sonuçlar ve sınırlamalar ayrı tutuluyor.
 
-Kısacası Tracefold'un iddiası, sadece çevrimdışı çalışan bir chatbot olmak değil. Özel belgeler üzerinde, kaynağı görülebilen, test edilebilen ve bilmediği yerde durabilen güvenilir bir cevap katmanı olmak. Teşekkür ederim.
+Tracefold, kaynağı görülebilen ve bilmediği yerde durabilen bir yanıt katmanı. Northstar sözlüğü genişletilebilir; ancak bugünkü iki dilli kalite iddiası bu kurmaca belge kümesinin yirmi dört senaryolu değerlendirmesine dayanıyor. Yeni bir alanda terimler gözden geçirilmeli ve değerlendirme yeniden çalıştırılmalı. Teşekkür ederim.

@@ -6,21 +6,20 @@ import hashlib
 import json
 import os
 import re
+import unicodedata
 import uuid
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
+from evaluation import Evaluator, load_evaluation_dataset
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from ingestion import SUPPORTED_EXTENSIONS, DocumentParser
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
-
-from evaluation import Evaluator, load_evaluation_dataset
-from ingestion import DocumentParser, SUPPORTED_EXTENSIONS
 from rag import RAGPipeline
 from runtime import BaseRuntime, RuntimeUnavailable, create_runtime
 from storage import TracefoldStore
-
 
 MAX_UPLOAD_BYTES = int(os.getenv("TRACEFOLD_MAX_UPLOAD_MB", "25")) * 1024 * 1024
 
@@ -34,6 +33,7 @@ class ChatRequest(BaseModel):
         validation_alias=AliasChoices("question", "query"),
     )
     top_k: int = Field(default=5, ge=1, le=12)
+    locale: Literal["en", "tr"] = "en"
 
 
 class EvaluationCase(BaseModel):
@@ -43,6 +43,8 @@ class EvaluationCase(BaseModel):
     type: str | None = None
     category: str | None = None
     question: str = Field(min_length=1, max_length=4000)
+    locale: Literal["en", "tr"] = "en"
+    paired_case_id: str | None = None
     answerable: bool = True
     expected_sources: list[str] = Field(default_factory=list)
     expected_terms: list[str] = Field(default_factory=list)
@@ -57,10 +59,23 @@ class EvaluationRequest(BaseModel):
 
 
 def safe_filename(filename: str) -> str:
-    basename = Path(filename).name.strip()
-    cleaned = re.sub(r"[^A-Za-z0-9._ -]+", "_", basename)
-    cleaned = re.sub(r"\s+", "_", cleaned).strip("._")
-    return cleaned[:180] or f"document_{uuid.uuid4().hex[:8]}.txt"
+    basename = re.split(r"[/\\]", filename)[-1]
+    normalized = unicodedata.normalize("NFC", basename)
+    cleaned = "".join(
+        "_" if unicodedata.category(character).startswith("C") else character
+        for character in normalized
+    )
+    cleaned = re.sub(r"[<>:\"/\\|?*]+", "_", cleaned)
+    cleaned = re.sub(r"\s+", "_", cleaned).strip(" ._")
+    if cleaned in {"", ".", ".."}:
+        cleaned = f"document_{uuid.uuid4().hex[:8]}.txt"
+    if len(cleaned) > 180:
+        suffix = Path(cleaned).suffix
+        if suffix and len(suffix) < 32:
+            cleaned = cleaned[: 180 - len(suffix)].rstrip(" ._") + suffix
+        else:
+            cleaned = cleaned[:180].rstrip(" ._")
+    return cleaned or f"document_{uuid.uuid4().hex[:8]}.txt"
 
 
 def sse(event: str, data: Any) -> str:
@@ -72,7 +87,9 @@ def create_app(
     data_dir: str | Path | None = None,
     runtime: BaseRuntime | None = None,
 ) -> FastAPI:
-    root_data = Path(data_dir or os.getenv("TRACEFOLD_DATA_DIR") or Path(__file__).parent.parent / "data")
+    root_data = Path(
+        data_dir or os.getenv("TRACEFOLD_DATA_DIR") or Path(__file__).parent.parent / "data"
+    )
     documents_dir = root_data / "documents"
     documents_dir.mkdir(parents=True, exist_ok=True)
     store = TracefoldStore(root_data / "tracefold.db")
@@ -80,6 +97,15 @@ def create_app(
     parser = DocumentParser()
     rag = RAGPipeline(store, selected_runtime)
     evaluator = Evaluator(rag, store)
+
+    def combined_runtime_status(*, probe: bool = False) -> dict[str, Any]:
+        status = selected_runtime.status(probe=probe)
+        translation_status = rag.translation.status(probe=probe)
+        return {
+            **status,
+            "ready": bool(status.get("ready")) and bool(translation_status.get("ready")),
+            "translation": translation_status,
+        }
 
     application = FastAPI(
         title="Tracefold",
@@ -104,6 +130,7 @@ def create_app(
 
     application.state.store = store
     application.state.runtime = selected_runtime
+    application.state.translation = rag.translation
     application.state.rag = rag
     application.state.documents_dir = documents_dir
 
@@ -116,13 +143,12 @@ def create_app(
             content={
                 "detail": str(exc),
                 "code": "runtime_unavailable",
-                "runtime": selected_runtime.status(),
+                "runtime": combined_runtime_status(),
             },
         )
 
     frontend_dist = Path(
-        os.getenv("TRACEFOLD_FRONTEND_DIST")
-        or Path(__file__).parent.parent / "frontend" / "dist"
+        os.getenv("TRACEFOLD_FRONTEND_DIST") or Path(__file__).parent.parent / "frontend" / "dist"
     )
 
     @application.get("/")
@@ -138,14 +164,22 @@ def create_app(
         return {
             "status": "healthy",
             "service": "Tracefold",
-            "runtime": selected_runtime.status(probe=False),
+            "runtime": combined_runtime_status(probe=False),
             **store.counts(),
         }
 
     @application.get("/api/runtime")
     async def runtime_status() -> dict[str, Any]:
-        status = selected_runtime.status(probe=True)
-        return {**status, "available": status.get("error") is None}
+        status = combined_runtime_status(probe=True)
+        translation_status = status["translation"]
+        return {
+            **status,
+            "available": (
+                status.get("error") is None
+                and translation_status.get("error") is None
+                and bool(translation_status.get("ready"))
+            ),
+        }
 
     @application.post("/api/documents", status_code=201)
     async def upload_document(file: Annotated[UploadFile, File(...)]) -> dict[str, Any]:
@@ -191,7 +225,9 @@ def create_app(
                 chunk_size=int(os.getenv("TRACEFOLD_CHUNK_SIZE", "240")),
                 overlap=int(os.getenv("TRACEFOLD_CHUNK_OVERLAP", "45")),
             )
-            store.update_job(job_id, status="processing", progress=0.55, message="Creating embeddings")
+            store.update_job(
+                job_id, status="processing", progress=0.55, message="Creating embeddings"
+            )
             embedded_chunks = rag.embed_chunks(parsed_chunks)
             store.update_job(job_id, status="processing", progress=0.9, message="Saving index")
             store.add_document(
@@ -222,18 +258,24 @@ def create_app(
             raise
         except ValueError as exc:
             stored_path.unlink(missing_ok=True)
-            store.update_job(job_id, status="failed", progress=1, message="Ingestion failed", error=str(exc))
+            store.update_job(
+                job_id, status="failed", progress=1, message="Ingestion failed", error=str(exc)
+            )
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         except Exception as exc:
             stored_path.unlink(missing_ok=True)
-            store.update_job(job_id, status="failed", progress=1, message="Ingestion failed", error=str(exc))
-            raise HTTPException(status_code=500, detail=f"Document ingestion failed: {exc}") from exc
+            store.update_job(
+                job_id, status="failed", progress=1, message="Ingestion failed", error=str(exc)
+            )
+            raise HTTPException(
+                status_code=500, detail=f"Document ingestion failed: {exc}"
+            ) from exc
 
         return {
             "status": "indexed",
             "job_id": job_id,
             "document": store.get_document(document_id),
-            "runtime": selected_runtime.status(),
+            "runtime": combined_runtime_status(),
         }
 
     @application.get("/api/documents")
@@ -271,13 +313,15 @@ def create_app(
     @application.post("/api/chat")
     async def chat(request: ChatRequest) -> dict[str, Any]:
         return {
-            **rag.answer(request.question.strip(), top_k=request.top_k),
-            "runtime": selected_runtime.status(),
+            **rag.answer(request.question.strip(), top_k=request.top_k, locale=request.locale),
+            "runtime": combined_runtime_status(),
         }
 
     @application.post("/api/chat/stream")
     async def chat_stream(request: ChatRequest) -> StreamingResponse:
-        metadata, tokens = rag.answer_stream(request.question.strip(), top_k=request.top_k)
+        metadata, tokens = rag.answer_stream(
+            request.question.strip(), top_k=request.top_k, locale=request.locale
+        )
 
         def events():
             answer = ""
@@ -293,14 +337,12 @@ def create_app(
                 for token in tokens:
                     answer += token
                     yield sse("token", {"text": token})
-                citations = (
-                    []
-                    if answer.strip()
-                    == "I couldn't find enough evidence in the indexed documents to answer that."
-                    else metadata["citations"]
-                )
+                citations = [] if metadata["refused"] else metadata["citations"]
                 yield sse("citations", {"citations": citations})
-                yield sse("done", {"answer": answer.strip(), "refused": not citations})
+                yield sse(
+                    "done",
+                    {"answer": answer.strip(), "refused": metadata["refused"]},
+                )
             except Exception as exc:
                 yield sse("error", {"code": "generation_failed", "message": str(exc)})
 

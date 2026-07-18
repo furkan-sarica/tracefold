@@ -1,4 +1,4 @@
-import type { Citation, DocumentItem, EvaluationResult, RuntimeStatus } from "./types";
+import type { Citation, DocumentItem, EvaluationResult, RuntimeStatus, TranslationStatus } from "./types";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 
@@ -17,9 +17,9 @@ async function errorFrom(response: Response): Promise<ApiError> {
     const body = await response.json();
     const detail = body.detail || body.message;
     const message = typeof detail === "string" ? detail : detail?.message;
-    return new ApiError(response.status, message || `Request failed (${response.status})`);
+    return new ApiError(response.status, message || `HTTP ${response.status}`);
   } catch {
-    return new ApiError(response.status, `Request failed (${response.status})`);
+    return new ApiError(response.status, `HTTP ${response.status}`);
   }
 }
 
@@ -33,10 +33,13 @@ export async function getRuntime(): Promise<RuntimeStatus> {
   const raw = await json<Record<string, unknown>>("/api/runtime");
   const chat = raw.chat_model as Record<string, unknown> | string | undefined;
   const embedding = raw.embedding_model as Record<string, unknown> | string | undefined;
+  const translation = raw.translation && typeof raw.translation === "object"
+    ? raw.translation as TranslationStatus
+    : undefined;
   return {
     ...raw,
-    chat_model: typeof chat === "object" ? String(chat.alias || chat.variant_id || "Not reported") : chat,
-    embedding_model: typeof embedding === "object" ? String(embedding.alias || embedding.variant_id || "Not reported") : embedding,
+    chat_model: typeof chat === "object" ? String(chat.alias || chat.variant_id || "—") : chat,
+    embedding_model: typeof embedding === "object" ? String(embedding.alias || embedding.variant_id || "—") : embedding,
     chat_variant: typeof chat === "object" && chat.variant_id ? String(chat.variant_id) : undefined,
     embedding_variant: typeof embedding === "object" && embedding.variant_id ? String(embedding.variant_id) : undefined,
     execution_provider: typeof chat === "object" && chat.execution_provider
@@ -44,7 +47,8 @@ export async function getRuntime(): Promise<RuntimeStatus> {
       : typeof embedding === "object" && embedding.execution_provider
         ? String(embedding.execution_provider)
         : undefined,
-    device: typeof chat === "object" ? String(chat.device || "Local machine") : undefined,
+    device: typeof chat === "object" ? String(chat.device || "—") : undefined,
+    translation,
     message: String(raw.message || raw.error || ""),
   } as RuntimeStatus;
 }
@@ -57,7 +61,7 @@ export async function getDocuments(): Promise<{ documents: DocumentItem[]; chunk
       : {
           ...doc,
           id: String(doc.id ?? `document-${index}`),
-          filename: doc.filename || (doc as DocumentItem & { name?: string }).name || "Untitled document",
+          filename: doc.filename || (doc as DocumentItem & { name?: string }).name || "—",
           chunks: doc.chunks ?? (doc as DocumentItem & { chunk_count?: number }).chunk_count,
           size: doc.size ?? (doc as DocumentItem & { size_bytes?: number }).size_bytes,
         },
@@ -130,8 +134,8 @@ function normalizeCitation(value: Record<string, unknown>, index: number): Citat
   return {
     id: String(value.id ?? value.chunk_id ?? `citation-${index}`),
     index: Number(value.index ?? index + 1),
-    source: String(value.source ?? value.filename ?? value.document ?? "Unknown source"),
-    excerpt: String(value.excerpt ?? value.text ?? value.content ?? "Excerpt unavailable."),
+    source: String(value.source ?? value.filename ?? value.document ?? "—"),
+    excerpt: String(value.excerpt ?? value.text ?? value.content ?? "—"),
     page: typeof rawPage === "number" || typeof rawPage === "string" ? rawPage : undefined,
     section: typeof rawSection === "string" && rawSection.trim() ? rawSection : undefined,
     score: typeof rawScore === "number" ? rawScore : Number(rawScore) || undefined,
@@ -139,11 +143,16 @@ function normalizeCitation(value: Record<string, unknown>, index: number): Citat
   };
 }
 
-export async function streamChat(question: string, topK: number, handlers: StreamHandlers): Promise<void> {
+export async function streamChat(
+  question: string,
+  topK: number,
+  locale: "en" | "tr",
+  handlers: StreamHandlers,
+): Promise<void> {
   const response = await fetch(`${API_BASE}/api/chat/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-    body: JSON.stringify({ question, top_k: topK }),
+    body: JSON.stringify({ question, top_k: topK, locale }),
   });
   if (!response.ok) throw await errorFrom(response);
 

@@ -7,8 +7,8 @@ import math
 import os
 import re
 import threading
-from typing import Any, Iterable
-
+from collections.abc import Iterable
+from typing import Any
 
 DEFAULT_EMBEDDING_MODEL = "qwen3-embedding-0.6b"
 DEFAULT_CHAT_MODEL = "qwen2.5-7b"
@@ -124,8 +124,7 @@ class FoundryLocalRuntime(BaseRuntime):
             compatible = [
                 variant
                 for variant in variants
-                if self._device(variant) == "CPU"
-                or self._execution_provider(variant) in registered
+                if self._device(variant) == "CPU" or self._execution_provider(variant) in registered
             ]
         if not compatible:
             raise RuntimeUnavailable(f"No compatible local variant is available for '{alias}'.")
@@ -133,7 +132,9 @@ class FoundryLocalRuntime(BaseRuntime):
         cached = [variant for variant in compatible if variant.is_cached]
         if cached:
             # Cached GPU/NPU is preferred, then cached CPU; avoids unnecessary downloads.
-            return sorted(cached, key=lambda v: {"GPU": 0, "NPU": 1, "CPU": 2}.get(self._device(v), 3))[0]
+            return sorted(
+                cached, key=lambda v: {"GPU": 0, "NPU": 1, "CPU": 2}.get(self._device(v), 3)
+            )[0]
 
         gpu = [variant for variant in compatible if self._device(variant) == "GPU"]
         if gpu:
@@ -179,11 +180,19 @@ class FoundryLocalRuntime(BaseRuntime):
                 raise
             except Exception as exc:
                 self._last_error = str(exc)
-                raise RuntimeUnavailable(f"Foundry Local models could not be loaded: {exc}") from exc
+                raise RuntimeUnavailable(
+                    f"Foundry Local models could not be loaded: {exc}"
+                ) from exc
 
     def _model_status(self, model: Any, alias: str) -> dict[str, Any]:
         if model is None:
-            return {"alias": alias, "variant_id": None, "device": None, "cached": False, "loaded": False}
+            return {
+                "alias": alias,
+                "variant_id": None,
+                "device": None,
+                "cached": False,
+                "loaded": False,
+            }
         return {
             "alias": alias,
             "variant_id": model.id,
@@ -258,7 +267,7 @@ class FakeRuntime(BaseRuntime):
         for text in texts:
             vector = [0.0] * self.dimensions
             terms = self._terms(text)
-            features = terms + [f"{a}_{b}" for a, b in zip(terms, terms[1:])]
+            features = terms + [f"{a}_{b}" for a, b in zip(terms, terms[1:], strict=False)]
             for feature in features:
                 digest = hashlib.sha256(feature.encode("utf-8")).digest()
                 index = int.from_bytes(digest[:4], "little") % self.dimensions
@@ -271,7 +280,18 @@ class FakeRuntime(BaseRuntime):
         context = messages[0]["content"]
         question = messages[-1]["content"]
         question_terms = set(self._terms(question)) - {
-            "a", "an", "the", "is", "are", "what", "where", "when", "who", "how", "does", "do"
+            "a",
+            "an",
+            "the",
+            "is",
+            "are",
+            "what",
+            "where",
+            "when",
+            "who",
+            "how",
+            "does",
+            "do",
         }
         matches = re.findall(r"\[(\d+)\][^\n]*\n(.+?)(?=\n\n\[|\Z)", context, flags=re.DOTALL)
         ranked = sorted(
@@ -290,8 +310,7 @@ class FakeRuntime(BaseRuntime):
                 default=text,
             )
             answer = f"{sentence.strip()} [{citation}]"
-        for token in re.findall(r"\S+\s*", answer):
-            yield token
+        yield from re.findall(r"\S+\s*", answer)
 
 
 def create_runtime() -> BaseRuntime:
