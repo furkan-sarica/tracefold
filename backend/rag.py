@@ -53,7 +53,7 @@ class RAGPipeline:
         self.threshold = float(
             os.getenv(
                 "TRACEFOLD_RETRIEVAL_THRESHOLD",
-                os.getenv("TRACEFOLD_MIN_SCORE", "0.60"),
+                os.getenv("TRACEFOLD_MIN_SCORE", "0.55"),
             )
         )
         default_evidence_floor = str(min(0.30, self.threshold))
@@ -140,7 +140,28 @@ class RAGPipeline:
 
         if locale != "tr":
             return [question]
-        translated = self.translation.query_to_english(question).strip()
+        try:
+            translated = self.translation.query_to_english(question).strip()
+        except Exception:
+            # Fallback: strip numbers/dates, translate the rest, re-insert originals.
+            import re as _re
+
+            placeholders: dict[str, str] = {}
+
+            def _stash(m: _re.Match[str]) -> str:
+                key = f"__P{len(placeholders)}__"
+                placeholders[key] = m.group(0)
+                return key
+
+            masked = _re.sub(
+                r"\d{1,2}[:\.]\d{2}|\d{1,2}\s+\w+\s*\d{0,4}|\d{4}|\b\d+\b", _stash, question
+            )
+            try:
+                translated = self.translation.query_to_english(masked).strip()
+            except Exception:
+                return [question]
+            for key, original in placeholders.items():
+                translated = translated.replace(key, original)
         if not translated or translated in {REFUSAL, REFUSAL_TR}:
             return [question]
         translated = translated.strip("\"' \n\t")
@@ -343,15 +364,15 @@ class RAGPipeline:
         generation_results = grounded[:max_chunks]
         generation_citations = citations[:max_chunks]
         refusal = refusal_for_locale(locale)
-        generation_locale: AnswerLocale = "en" if locale == "tr" else locale
-        generation_question = focus_question if locale == "tr" and focus_question else question
-        answer_language = "English"
+        generation_locale: AnswerLocale = locale
+        generation_question = question
+        answer_language = "Turkish" if locale == "tr" else "English"
         messages = self._messages(
             generation_question,
             generation_results,
             locale=generation_locale,
             focus_question=focus_question,
-            controlled_translation=locale == "tr",
+            controlled_translation=False,
         )
         generated = self.runtime.generate(messages).strip() or refusal
         if generated in {REFUSAL, REFUSAL_TR}:
@@ -388,46 +409,10 @@ class RAGPipeline:
             return validated
         if validated[0] == generation_refusal:
             return REFUSAL_TR, []
-
-        cited_english_claims = self._citation_claims(validated[0])
-        if not cited_english_claims:
+        # Direct Turkish generation — only run quality checks, no round-trip translation.
+        if self.turkish_quality_issues(validated[0]):
             return REFUSAL_TR, []
-        english_claims = [
-            (atomic_claim, indices)
-            for claim, indices in cited_english_claims
-            for atomic_claim in self.translation.atomize_claim(claim)
-        ]
-        try:
-            turkish_claims = self.translation.claims_to_turkish(
-                [claim for claim, _indices in english_claims]
-            )
-        except TranslationRejected:
-            return REFUSAL_TR, []
-
-        reconstructed: list[str] = []
-        for translated_claim, (_claim, indices) in zip(
-            turkish_claims,
-            english_claims,
-            strict=True,
-        ):
-            sentence = translated_claim.strip()
-            if not sentence:
-                return REFUSAL_TR, []
-            if sentence[-1] not in ".!?":
-                sentence += "."
-            markers = "".join(f"[{index}]" for index in sorted(indices))
-            reconstructed.append(f"{sentence} {markers}")
-        translated_answer = "\n".join(reconstructed)
-        translated_validation = self.validate_generated_answer(
-            translated_answer,
-            generation_citations,
-            locale="tr",
-        )
-        if translated_validation[0] == REFUSAL_TR or self.turkish_quality_issues(
-            translated_validation[0]
-        ):
-            return REFUSAL_TR, []
-        return translated_validation
+        return validated
 
     def prepare(
         self,

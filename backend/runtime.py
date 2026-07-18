@@ -11,7 +11,7 @@ from collections.abc import Iterable
 from typing import Any
 
 DEFAULT_EMBEDDING_MODEL = "qwen3-embedding-0.6b"
-DEFAULT_CHAT_MODEL = "qwen2.5-7b"
+DEFAULT_CHAT_MODEL = "qwen2.5-14b"
 
 
 class RuntimeUnavailable(RuntimeError):
@@ -227,9 +227,21 @@ class FoundryLocalRuntime(BaseRuntime):
 
     def generate_stream(self, messages: list[dict[str, str]]) -> Iterable[str]:
         self.ensure_ready()
+        in_thinking = False
         for event in self._chat_client.complete_streaming_chat(messages):
             if event.choices and event.choices[0].delta.content:
-                yield event.choices[0].delta.content
+                token = event.choices[0].delta.content
+                # Qwen3 thinking mode: skip <think>...</think> blocks
+                if "<think>" in token:
+                    in_thinking = True
+                    token = token.split("<think>")[0]
+                if "</think>" in token:
+                    in_thinking = False
+                    token = token.split("</think>", 1)[1] if "</think>" in token else ""
+                if in_thinking:
+                    continue
+                if token:
+                    yield token
 
 
 class FakeRuntime(BaseRuntime):

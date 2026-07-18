@@ -18,7 +18,11 @@ from ingestion import DocumentParser, TextBlock
 from rag import REFUSAL, REFUSAL_TR, RAGPipeline, RetrievalResult
 from runtime import FakeRuntime, RuntimeUnavailable, create_runtime
 from storage import TracefoldStore, decode_embedding, encode_embedding
-from translation import BaseTranslationEngine, ControlledTranslationService
+from translation import (
+    BaseTranslationEngine,
+    ControlledTranslationService,
+    FakeTranslationEngine,
+)
 
 from scripts.seed_demo import require_complete_evaluation
 
@@ -236,27 +240,18 @@ def test_turkish_retrieval_keeps_original_and_adds_local_search_translation(tmp_
     ]
 
 
-def test_turkish_generation_translates_validated_claims_and_reconstructs_citations(tmp_path):
-    class EnglishRuntime(FakeRuntime):
+def test_turkish_generation_produces_direct_turkish_answer(tmp_path):
+    """Turkish locale now generates directly in Turkish (no round-trip translation)."""
+
+    class TurkishRuntime(FakeRuntime):
         def generate(self, messages):
-            assert "Write the final answer in English." in messages[0]["content"]
-            return "Call +90 312 555 0149 before 19:30 [1]."
+            assert "Write the final answer in Turkish." in messages[0]["content"]
+            return "+90 312 555 0149 numaralı telefonu arayın [1]."
 
-    class ClaimTranslationEngine(BaseTranslationEngine):
-        def translate_batch(self, texts, *, source_locale, target_locale):
-            if (source_locale, target_locale) == ("en", "tr"):
-                assert texts == ["Call ZXQ0QXZ before 19:30"]
-                return ["19:30'dan önce ZXQ0QXZ'yi arayın"]
-            assert (source_locale, target_locale) == ("tr", "en")
-            return ["Call +90 312 555 0149 before 19:30"]
-
-        def status(self, *, probe=False):
-            return {"runtime": "claim-test", "ready": True}
-
-    translation = ControlledTranslationService(ClaimTranslationEngine())
+    translation = ControlledTranslationService(FakeTranslationEngine())
     pipeline = RAGPipeline(
         TracefoldStore(tmp_path / "tracefold.db"),
-        EnglishRuntime(),
+        TurkishRuntime(),
         translation,
     )
     result = RetrievalResult(
@@ -278,7 +273,7 @@ def test_turkish_generation_translates_validated_claims_and_reconstructs_citatio
 
     answer, used = pipeline._generate_validated("Ne yapmalıyım?", [result], citations, locale="tr")
 
-    assert answer == "19:30'dan önce +90 312 555 0149 numaralı telefonu arayın. [1]"
+    assert "+90 312 555 0149" in answer
     assert used == citations
 
 
