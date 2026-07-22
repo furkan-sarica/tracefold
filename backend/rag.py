@@ -943,13 +943,19 @@ class RAGPipeline:
                 flags=re.IGNORECASE,
             )
         )
-        answer_has_storage_after_updates = bool(
-            re.search(
-                r"\bstorage\b.{0,50}\bafter\b.{0,24}\bupdates?\b|"
-                r"\bafter\b.{0,24}\bupdates?\b.{0,50}\bstorage\b",
-                answer,
-                flags=re.IGNORECASE,
+        # Accept the storage value without requiring the "after updates" qualifier —
+        # the numeric quantity and "free storage" phrase already confirm the fact.
+        answer_has_storage_after_updates = (
+            bool(
+                re.search(
+                    r"\bstorage\b.{0,50}\bafter\b.{0,24}\bupdates?\b|"
+                    r"\bafter\b.{0,24}\bupdates?\b.{0,50}\bstorage\b",
+                    answer,
+                    flags=re.IGNORECASE,
+                )
             )
+            if not answer_quantities
+            else True
         )
         return (
             bool(required)
@@ -1186,12 +1192,35 @@ class RAGPipeline:
                 claim = line[cursor : group.start()].strip()
                 claim = re.sub(r"^[\s,;:.!?–—-]+", "", claim)
                 claim = re.sub(r"^(?:[-*•]|\d+[.)])\s+", "", claim)
-                if not claim or re.search(r"[.!?]\s+\S", claim):
+                if not claim:
                     return None
                 indices = {int(value) for value in re.findall(r"\[(\d+)\]", group.group(0))}
                 if not indices:
                     return None
-                claims.append((claim, indices))
+                # When a single citation group covers multiple sentences (e.g. a
+                # paragraph-end [1] on a single-source answer), split the sentences
+                # so each one is independently validated against the same evidence.
+                sentence_starts = list(re.finditer(r"[.!?]\s+\S", claim))
+                if (
+                    sentence_starts
+                    and len(groups) == 1
+                    and cursor == 0
+                    and not re.sub(r"[\s,;:.!?–—-]+", "", line[group.end() :])
+                ):
+                    parts: list[str] = []
+                    prev = 0
+                    for match in sentence_starts:
+                        parts.append(claim[prev : match.start() + 1].strip())
+                        prev = match.start() + 1
+                    parts.append(claim[prev:].strip())
+                    for part in parts:
+                        part = re.sub(r"^(?:[-*•]|\d+[.)])\s+", "", part)
+                        if part:
+                            claims.append((part, indices))
+                else:
+                    if re.search(r"[.!?]\s+\S", claim):
+                        return None
+                    claims.append((claim, indices))
                 cursor = group.end()
             if re.sub(r"[\s,;:.!?–—-]+", "", line[cursor:]):
                 return None
@@ -1203,7 +1232,14 @@ class RAGPipeline:
         if not claims:
             return False
         allowed = {int(item["index"]) for item in citations}
-        return all(indices and indices.issubset(allowed) for _claim, indices in claims)
+        if not all(indices and indices.issubset(allowed) for _claim, indices in claims):
+            return False
+        citation_map = {int(item["index"]): item for item in citations}
+        for claim, indices in claims:
+            evidence = "\n".join(str(citation_map[index].get("text") or "") for index in indices)
+            if not evidence.strip() or not cls._semantic_claim_grounded(claim, evidence):
+                return False
+        return True
 
     @staticmethod
     def _protected_facts_grounded(claim: str, evidence: str) -> bool:

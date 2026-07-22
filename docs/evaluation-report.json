@@ -1,30 +1,30 @@
 {
-  "id": "eval_4a981a2e3bca4c67a4953dca6c5c8d45",
+  "id": "eval_c9c32b6ba7f143298fb34d6b9e283155",
   "dataset_id": "northstar-summer-lab-2026-bilingual-parity-v3",
   "status": "complete",
-  "created_at": "2026-07-22T09:33:51.208102+00:00",
-  "retrieval_p95_ms": 3257.04,
+  "created_at": "2026-07-22T10:54:30.083893+00:00",
+  "retrieval_p95_ms": 2420.37,
   "metrics": {
     "total_cases": 24,
     "answerable_cases": 16,
     "negative_cases": 8,
-    "passed_cases": 20,
+    "passed_cases": 22,
     "hit_at_k": 1.0,
     "source_recall_at_k": 1.0,
     "citation_precision": 0.875,
     "citation_accuracy": 0.875,
     "citation_sentence_coverage": 1.0,
     "protected_fact_grounding_accuracy": 1.0,
-    "protected_fact_completeness": 0.8125,
-    "snippet_token_recall": 0.7414,
-    "required_fact_recall": 0.659,
-    "required_order_accuracy": 0.5,
-    "required_fact_completeness": 0.75,
+    "protected_fact_completeness": 0.875,
+    "snippet_token_recall": 0.7542,
+    "required_fact_recall": 0.6964,
+    "required_order_accuracy": 1.0,
+    "required_fact_completeness": 0.875,
     "custom_term_accuracy": null,
     "language_quality_accuracy": 1.0,
     "refusal_accuracy": 1.0,
-    "average_retrieval_ms": 1581.89,
-    "retrieval_p95_ms": 3257.04,
+    "average_retrieval_ms": 934.33,
+    "retrieval_p95_ms": 2420.37,
     "locales": [
       "en",
       "tr"
@@ -34,29 +34,7 @@
         "total_cases": 12,
         "answerable_cases": 8,
         "negative_cases": 4,
-        "passed_cases": 10,
-        "hit_at_k": 1.0,
-        "source_recall_at_k": 1.0,
-        "citation_precision": 0.875,
-        "citation_accuracy": 0.875,
-        "citation_sentence_coverage": 1.0,
-        "protected_fact_grounding_accuracy": 1.0,
-        "protected_fact_completeness": 0.75,
-        "snippet_token_recall": 0.7607,
-        "required_fact_recall": 0.6934,
-        "required_order_accuracy": 0.0,
-        "required_fact_completeness": 0.75,
-        "custom_term_accuracy": null,
-        "language_quality_accuracy": 1.0,
-        "refusal_accuracy": 1.0,
-        "average_retrieval_ms": 1272.22,
-        "retrieval_p95_ms": 3097.15
-      },
-      "tr": {
-        "total_cases": 12,
-        "answerable_cases": 8,
-        "negative_cases": 4,
-        "passed_cases": 10,
+        "passed_cases": 11,
         "hit_at_k": 1.0,
         "source_recall_at_k": 1.0,
         "citation_precision": 0.875,
@@ -64,20 +42,42 @@
         "citation_sentence_coverage": 1.0,
         "protected_fact_grounding_accuracy": 1.0,
         "protected_fact_completeness": 0.875,
-        "snippet_token_recall": 0.7221,
-        "required_fact_recall": 0.6246,
+        "snippet_token_recall": 0.7786,
+        "required_fact_recall": 0.741,
         "required_order_accuracy": 1.0,
-        "required_fact_completeness": 0.75,
+        "required_fact_completeness": 0.875,
         "custom_term_accuracy": null,
         "language_quality_accuracy": 1.0,
         "refusal_accuracy": 1.0,
-        "average_retrieval_ms": 1891.56,
-        "retrieval_p95_ms": 4661.6
+        "average_retrieval_ms": 827.71,
+        "retrieval_p95_ms": 2149.04
+      },
+      "tr": {
+        "total_cases": 12,
+        "answerable_cases": 8,
+        "negative_cases": 4,
+        "passed_cases": 11,
+        "hit_at_k": 1.0,
+        "source_recall_at_k": 1.0,
+        "citation_precision": 0.875,
+        "citation_accuracy": 0.875,
+        "citation_sentence_coverage": 1.0,
+        "protected_fact_grounding_accuracy": 1.0,
+        "protected_fact_completeness": 0.875,
+        "snippet_token_recall": 0.7299,
+        "required_fact_recall": 0.6518,
+        "required_order_accuracy": 1.0,
+        "required_fact_completeness": 0.875,
+        "custom_term_accuracy": null,
+        "language_quality_accuracy": 1.0,
+        "refusal_accuracy": 1.0,
+        "average_retrieval_ms": 1040.94,
+        "retrieval_p95_ms": 3636.76
       }
     },
     "bilingual_pairs_evaluated": 12,
-    "bilingual_pair_accuracy": 0.8333,
-    "model_warmup_ms": 64.73,
+    "bilingual_pair_accuracy": 0.9167,
+    "model_warmup_ms": 55.68,
     "top_k": 5,
     "retrieval_threshold": 0.6,
     "run_context": {
@@ -136,7 +136,7 @@
         "machine": "arm64"
       },
       "code_provenance": {
-        "revision": "8324d7dca47421fab3ce4851417f412b3b190d7e",
+        "revision": "f11fdbe9f6a6fd0e00d27c81aae69839fcfbccb5",
         "dirty": false,
         "source": "git"
       },
@@ -209,7 +209,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 58.48
+      "retrieval_ms": 54.14
     },
     {
       "id": "NSL-A02",
@@ -249,7 +249,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 1565.21
+      "retrieval_ms": 370.43
     },
     {
       "id": "NSL-A03",
@@ -284,7 +284,7 @@
       "term_match": null,
       "refusal_correct": false,
       "passed": false,
-      "retrieval_ms": 2869.97
+      "retrieval_ms": 1038.06
     },
     {
       "id": "NSL-A04",
@@ -324,7 +324,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 1405.92
+      "retrieval_ms": 2005.35
     },
     {
       "id": "NSL-A05",
@@ -334,7 +334,7 @@
       "locale": "en",
       "paired_case_id": null,
       "answerable": true,
-      "answer": "Participants must check out by 10:00 on Saturday, 15 August, returning their room key and borrowed linen bag to reception [2]. After checking out, luggage can be left in the tagged ground-floor room until 12:15 for those using the final departure shuttle [2].",
+      "answer": "Participants must check out by 10:00 on Saturday, 15 August, returning their room key and borrowed linen bag to reception [2]. Luggage can be left in the tagged ground-floor room until 12:15 for those using the final departure shuttle [2].",
       "expected_sources": [
         "03-travel-guide.md",
         "04-accommodation-guide.md"
@@ -357,13 +357,13 @@
       "protected_fact_complete": true,
       "language_quality": true,
       "snippet_token_recall": 0.8667,
-      "required_fact_recall": 0.6905,
+      "required_fact_recall": 0.6548,
       "required_fact_complete": true,
       "required_order_complete": null,
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 1397.5
+      "retrieval_ms": 410.25
     },
     {
       "id": "NSL-A06",
@@ -373,7 +373,7 @@
       "locale": "en",
       "paired_case_id": null,
       "answerable": true,
-      "answer": "In an immediate threat, use the campus emergency number first [2]. After addressing the immediate danger, report the conduct concern through the confidential routes detailed in the Code of Conduct: email the Conduct Lead at conduct@northstar.example or ask Participant Support to assist with the report [1] [2].",
+      "answer": "Apply the emergency procedure before the confidential conduct report [2]. Call campus emergency extension 5555 from a campus phone or +90 312 555 0155 from a mobile [2]. After immediate safety is addressed, email the conduct concern to conduct@northstar.example for the Conduct Lead [1].",
       "expected_sources": [
         "05-safety-guide.md",
         "07-code-of-conduct.md",
@@ -395,16 +395,16 @@
       "citation_correct": true,
       "citation_sentence_coverage": true,
       "protected_fact_grounded": true,
-      "protected_fact_complete": false,
+      "protected_fact_complete": true,
       "language_quality": true,
-      "snippet_token_recall": 0.4286,
-      "required_fact_recall": 0.5,
-      "required_fact_complete": false,
-      "required_order_complete": false,
+      "snippet_token_recall": 0.5714,
+      "required_fact_recall": 0.9167,
+      "required_fact_complete": true,
+      "required_order_complete": true,
       "term_match": null,
       "refusal_correct": true,
-      "passed": false,
-      "retrieval_ms": 2694.39
+      "passed": true,
+      "retrieval_ms": 1843.28
     },
     {
       "id": "NSL-A07",
@@ -441,7 +441,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 424.77
+      "retrieval_ms": 2149.04
     },
     {
       "id": "NSL-A08",
@@ -478,7 +478,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 3097.15
+      "retrieval_ms": 1539.02
     },
     {
       "id": "NSL-U01",
@@ -507,7 +507,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 1549.73
+      "retrieval_ms": 268.27
     },
     {
       "id": "NSL-U02",
@@ -536,7 +536,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 81.3
+      "retrieval_ms": 66.89
     },
     {
       "id": "NSL-U03",
@@ -565,7 +565,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 62.74
+      "retrieval_ms": 56.25
     },
     {
       "id": "NSL-U04",
@@ -594,7 +594,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 59.53
+      "retrieval_ms": 131.53
     },
     {
       "id": "NSL-TR-A01",
@@ -631,7 +631,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 358.63
+      "retrieval_ms": 373.96
     },
     {
       "id": "NSL-TR-A02",
@@ -671,7 +671,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 3079.41
+      "retrieval_ms": 533.53
     },
     {
       "id": "NSL-TR-A03",
@@ -706,7 +706,7 @@
       "term_match": null,
       "refusal_correct": false,
       "passed": false,
-      "retrieval_ms": 4661.6
+      "retrieval_ms": 900.0
     },
     {
       "id": "NSL-TR-A04",
@@ -746,7 +746,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 3257.04
+      "retrieval_ms": 2420.37
     },
     {
       "id": "NSL-TR-A05",
@@ -785,7 +785,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 1768.41
+      "retrieval_ms": 981.95
     },
     {
       "id": "NSL-TR-A06",
@@ -795,7 +795,7 @@
       "locale": "tr",
       "paired_case_id": "NSL-A06",
       "answerable": true,
-      "answer": "İlk olarak, kampüs telefonundan 5555 dahili numarasını arayın veya bir cep telefonundan +90 312 555 0155 numaralı telefonu arayın. [2]\nAcil tehdidi ele aldıktan sonra, conduct@northstar.example adresine e-posta göndermeyi içeren Davranış Kuralları'ndaki gizli yolları kullanarak davranışı bildirin. [1][2]",
+      "answer": "Gizli davranış bildiriminden önce acil durum prosedürünü uygulayın. [2]\nBir kampüs telefonundan 5555 dahili numarasını arayın veya +90 312 555 0155 numaralı telefonu bir cep telefonundan arayın. [2]\nAcil güvenlik sağlandıktan sonra davranışla ilgili endişeyi conduct@northstar.example adresine e-posta göndererek Davranış Sorumlusuna bildirin. [1]",
       "expected_sources": [
         "05-safety-guide.md",
         "07-code-of-conduct.md",
@@ -819,14 +819,14 @@
       "protected_fact_grounded": true,
       "protected_fact_complete": true,
       "language_quality": true,
-      "snippet_token_recall": 0.8125,
-      "required_fact_recall": 0.5301,
-      "required_fact_complete": false,
+      "snippet_token_recall": 0.875,
+      "required_fact_recall": 0.7474,
+      "required_fact_complete": true,
       "required_order_complete": true,
       "term_match": null,
       "refusal_correct": true,
-      "passed": false,
-      "retrieval_ms": 2314.06
+      "passed": true,
+      "retrieval_ms": 794.53
     },
     {
       "id": "NSL-TR-A07",
@@ -863,7 +863,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 927.9
+      "retrieval_ms": 3636.76
     },
     {
       "id": "NSL-TR-A08",
@@ -901,7 +901,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 3253.59
+      "retrieval_ms": 1399.78
     },
     {
       "id": "NSL-TR-U01",
@@ -930,7 +930,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 2697.21
+      "retrieval_ms": 1104.1
     },
     {
       "id": "NSL-TR-U02",
@@ -959,7 +959,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 130.53
+      "retrieval_ms": 115.76
     },
     {
       "id": "NSL-TR-U03",
@@ -988,7 +988,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 128.07
+      "retrieval_ms": 117.75
     },
     {
       "id": "NSL-TR-U04",
@@ -1017,7 +1017,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 122.31
+      "retrieval_ms": 112.82
     }
   ]
 }

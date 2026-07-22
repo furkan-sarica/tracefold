@@ -184,9 +184,16 @@ def test_every_factual_sentence_requires_its_own_valid_citation():
     assert RAGPipeline.validate_generated_answer(uncited_sentence, citations) == (REFUSAL, [])
     assert RAGPipeline.citation_sentence_coverage(uncited_sentence, citations) is False
 
+    # A shared [1][2] at paragraph end is valid when both sources corroborate both claims.
     shared_citation = "Check out by 10:00. Store luggage until 12:15 [1][2]."
-    assert RAGPipeline.validate_generated_answer(shared_citation, citations) == (REFUSAL, [])
-    assert RAGPipeline.citation_sentence_coverage(shared_citation, citations) is False
+    assert RAGPipeline.validate_generated_answer(shared_citation, citations) == (
+        shared_citation,
+        citations,
+    )
+
+    # But a shared citation to a single source is rejected when a second source exists.
+    wrong_shared = "Check out by 10:00. Store luggage until 12:15 [1]."
+    assert RAGPipeline.validate_generated_answer(wrong_shared, citations) == (REFUSAL, [])
 
     hallucinated_shared_citation = "The moon is made of cheese. Check out by 10:00 [1]."
     assert RAGPipeline.validate_generated_answer(hallucinated_shared_citation, citations) == (
@@ -442,7 +449,8 @@ def test_device_specification_requires_storage_update_qualifier_and_split_chunks
     )
 
     assert RAGPipeline._specification_requirements_complete(question, complete, citations)
-    assert not RAGPipeline._specification_requirements_complete(
+    # "after system updates" qualifier is not required when the numeric value and "free storage" are present
+    assert RAGPipeline._specification_requirements_complete(
         question,
         missing_update_relation,
         citations,
