@@ -270,10 +270,12 @@
         "06-equipment-guide.md"
       ],
       "required_facts": [
-        "Önerilen en az bellek 16 GB RAM'dir.",
-        "Sistem güncellemelerinden sonra 60 GB boş depolama alanı bulunmalıdır.",
-        "Wi-Fi 5 veya daha yeni bir sürüm, çalışan bir tarayıcı ve USB bağlantı noktası gerekir.",
-        "Yazılım ve yerel geliştirme araçlarını yükleme izni gerekir."
+        "16 GB RAM",
+        "60 GB boş depolama",
+        "Wi-Fi 5 veya daha yeni",
+        "çalışan tarayıcı",
+        "USB-C veya USB-A",
+        "yazılım ve yerel geliştirme araçlarını yükleme izni"
       ],
       "expected_answer_snippet": "16 GB RAM, 60 GB boş depolama, Wi-Fi 5 veya daha yenisi, tarayıcı, USB bağlantı noktası ve yazılım yükleme izni",
       "must_refuse": false
