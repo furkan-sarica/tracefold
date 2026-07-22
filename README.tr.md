@@ -20,7 +20,7 @@ Kanıt zayıfsa ya da çeviri, kritik değer, dil veya atıf denetimlerinden bir
 - **İncelenebilir kanıt:** Her atıf, saklanan pasajı, bölüm/sayfa bilgisini, parça kimliğini ve benzerlik puanını açar.
 - **Kanıta dayalı güvenli ret:** Her olgusal cümle geçerli kanıta bağlanır. Kanıt yetersizse sistem uydurmak yerine açıkça yanıt veremediğini söyler.
 - **Denetimli iki dilli akış:** Türkçe sorgu, korunan değerlerle çevrilir; İngilizce iddialar doğrulanır; Türkçe çıktı, atıfları yeniden kurulduktan ve geri çeviri, olgu ve dil denetimlerinden geçtikten sonra sunulur.
-- **Dürüst değerlendirme:** 12 İngilizce–Türkçe soru çifti, toplam 24 senaryoda ölçülür; 16 senaryo yanıt, 8 senaryo güvenli ret gerektirir.
+- **Dürüst değerlendirme:** 12 İngilizce–Türkçe soru çifti, toplam 24 senaryoda ölçülür; 16 senaryo yanıt, 8 senaryo güvenli ret gerektirir. En son doğrulanmış sürüm koşusu gerçek Foundry Local modeliyle 24/24 senaryo geçti.
 - **Sunuma hazır teslim:** Farklı ekran boyutlarına uyum sağlayan arayüz, gerçek model raporu, mimari ve gizlilik belgeleri ile İngilizce ve Türkçe PPTX/PDF sunumlar birlikte yayımlanır.
 
 ## Ödev kapsamı

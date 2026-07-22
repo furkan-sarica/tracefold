@@ -20,7 +20,7 @@ The result is an assignment-complete local RAG system presented as a polished pr
 - **Inspectable evidence:** every displayed citation opens the exact stored passage, section/page, chunk ID, and score.
 - **Grounded failure:** each factual sentence needs a valid citation; unknown, missing, or out-of-range IDs are rejected, and insufficient retrieval returns a locale-specific safe refusal.
 - **Controlled bilingual path:** retrieval keeps the original Turkish query alongside a protected OPUS-MT English translation; validated English claims return through a separate OPUS-MT model, citation reconstruction, and post-translation gates.
-- **Honest evaluation:** 24 checked-in cases form 12 one-to-one English/Turkish pairs, with 16 answerable and eight unanswerable cases, so language parity is measured rather than inferred.
+- **Honest evaluation:** 24 checked-in cases form 12 one-to-one English/Turkish pairs, with 16 answerable and eight unanswerable cases, so language parity is measured rather than inferred. The latest verified release run passed 24/24 cases with the real Foundry Local runtime.
 - **Presentation ready:** responsive Tracefold branding, a five-minute talk track, architecture/evaluation documentation, and final deck assets.
 
 ## Assignment coverage
