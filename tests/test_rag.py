@@ -326,6 +326,10 @@ def test_device_specification_completeness_requires_every_evidence_category():
         "browser, a USB-C or USB-A port, and permission to install software and local "
         "development tools [1]."
     )
+    category_only = (
+        "The laptop needs RAM, storage, Wi-Fi, a browser, USB ports, and permission to install "
+        "software [1]."
+    )
 
     assert not RAGPipeline._specification_requirements_complete(
         question,
@@ -335,12 +339,117 @@ def test_device_specification_completeness_requires_every_evidence_category():
     assert RAGPipeline._specification_requirements_complete(question, complete, citations)
     assert not RAGPipeline._specification_requirements_complete(
         question,
+        category_only,
+        citations,
+    )
+    assert not RAGPipeline._specification_requirements_complete(
+        question,
         complete + " Complete all operating-system updates before arrival [1].",
         citations,
     )
     assert RAGPipeline._specification_requirements_complete(
         "When must I return the loan laptop?",
         incomplete,
+        citations,
+    )
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "What laptop specifications should I prepare for the lab?",
+        "What features should the laptop I am preparing for the lab have?",
+    ],
+)
+def test_device_spec_excerpt_filters_adjacent_advice_even_under_budget(question):
+    evidence = (
+        "Bring a laptop that can run a current 64-bit operating system and that meets these "
+        "recommended minimums:\n\n"
+        "- **16 GB RAM**\n"
+        "- **60 GB free storage** after system updates\n"
+        "- Wi-Fi 5 or newer\n"
+        "- A working browser and USB-C or USB-A port\n"
+        "- Permission to install software and local development tools\n\n"
+        "Complete operating-system updates before arrival. Participants using an employer- "
+        "or school-managed device should confirm they have local installation rights. A tablet "
+        "alone is not sufficient for the project work."
+    )
+
+    excerpt = RAGPipeline._focused_excerpt(question, evidence, 800)
+
+    assert "16 GB RAM" in excerpt
+    assert "60 GB free storage** after system updates" in excerpt
+    assert "Wi-Fi 5 or newer" in excerpt
+    assert "working browser and USB-C or USB-A port" in excerpt
+    assert "Permission to install software and local development tools" in excerpt
+    assert "Complete operating-system updates" not in excerpt
+    assert "employer- or school-managed" not in excerpt
+    assert "tablet" not in excerpt.casefold()
+
+
+def test_non_spec_question_keeps_preparation_evidence():
+    evidence = "Complete operating-system updates before arrival."
+
+    assert (
+        RAGPipeline._focused_excerpt(
+            "When should I complete operating-system updates?",
+            evidence,
+            800,
+        )
+        == evidence
+    )
+
+
+def test_spec_excerpt_preserves_a_requirement_that_has_a_before_arrival_prefix():
+    evidence = "Before arrival, your laptop must have 16 GB RAM."
+
+    excerpt = RAGPipeline._focused_excerpt(
+        "What laptop specifications should I prepare for the lab?",
+        evidence,
+        800,
+    )
+
+    assert excerpt == "your laptop must have 16 GB RAM."
+
+
+def test_device_specification_requires_storage_update_qualifier_and_split_chunks():
+    question = "What specifications should my laptop have?"
+    citations = [
+        {
+            "index": 1,
+            "text": (
+                "The laptop needs 16 GB RAM, 60 GB free storage after system updates, and "
+                "Wi-Fi 5 or newer."
+            ),
+        },
+        {
+            "index": 2,
+            "text": (
+                "The laptop needs a working browser, USB-C or USB-A ports, and permission to "
+                "install software and local development tools."
+            ),
+        },
+    ]
+    complete = (
+        "The laptop needs 16 GB RAM and 60 GB free storage after system updates [1].\n"
+        "It needs Wi-Fi 5 or newer, a working browser, and USB-C or USB-A ports [1][2].\n"
+        "You need permission to install software and local development tools [2]."
+    )
+    missing_update_relation = complete.replace(" after system updates", "")
+    missing_second_chunk = (
+        "The laptop needs 16 GB RAM and 60 GB free storage after system updates [1].\n"
+        "It needs Wi-Fi 5 or newer [1]."
+    )
+
+    assert RAGPipeline._specification_requirements_complete(question, complete, citations)
+    assert not RAGPipeline._specification_requirements_complete(
+        question,
+        missing_update_relation,
+        citations,
+    )
+    assert not RAGPipeline._specification_requirements_complete(
+        question,
+        missing_second_chunk,
         citations,
     )
 
@@ -427,6 +536,219 @@ def test_device_specification_repair_fails_closed_when_still_incomplete(tmp_path
         citations,
     ) == (REFUSAL, [])
     assert runtime.calls == 2
+
+
+def test_exact_emergency_conduct_contacts_and_order_are_required():
+    question = (
+        "If threatening conduct creates immediate danger, what must I do first, and how do I "
+        "report the conduct afterward? Include the exact contacts."
+    )
+    citations = [
+        {
+            "index": 1,
+            "filename": "conduct.md",
+            "text": (
+                "Email the Conduct Lead at conduct@northstar.example. In an immediate threat, "
+                "follow the Safety Guide and use the campus emergency number first."
+            ),
+        },
+        {
+            "index": 2,
+            "filename": "safety.md",
+            "text": (
+                "In an immediate threat, the emergency procedure takes priority over confidential "
+                "conduct reporting: call **5555** from a campus phone or **+90 312 555 0155** "
+                "from a mobile before making a conduct report."
+            ),
+        },
+    ]
+    complete = (
+        "Apply the emergency procedure before the confidential conduct report [2].\n"
+        "Call campus emergency extension 5555 from a campus phone or +90 312 555 0155 from a "
+        "mobile [2].\n"
+        "After immediate safety is addressed, email the conduct concern to "
+        "conduct@northstar.example for the Conduct Lead [1][2]."
+    )
+    vague = (
+        "Use the campus emergency number first [2].\n"
+        "After immediate safety is addressed, email conduct@northstar.example for the Conduct "
+        "Lead [1][2]."
+    )
+    reversed_order = (
+        "Apply the emergency procedure before the confidential conduct report [2].\n"
+        "After immediate safety is addressed, email the conduct concern to "
+        "conduct@northstar.example for the Conduct Lead [1][2].\n"
+        "Call campus emergency extension 5555 from a campus phone or +90 312 555 0155 from a "
+        "mobile [2]."
+    )
+    phone_before_priority = (
+        "Call campus emergency extension 5555 from a campus phone or +90 312 555 0155 from a "
+        "mobile [2].\n"
+        "Apply the emergency procedure before the confidential conduct report [2].\n"
+        "After immediate safety is addressed, email the conduct concern to "
+        "conduct@northstar.example for the Conduct Lead [1][2]."
+    )
+
+    assert RAGPipeline._emergency_conduct_requirements_complete(
+        question,
+        complete,
+        citations,
+    )
+    assert not RAGPipeline._emergency_conduct_requirements_complete(
+        question,
+        vague,
+        citations,
+    )
+    assert not RAGPipeline._emergency_conduct_requirements_complete(
+        question,
+        reversed_order,
+        citations,
+    )
+    assert not RAGPipeline._emergency_conduct_requirements_complete(
+        question,
+        phone_before_priority,
+        citations,
+    )
+
+
+def test_emergency_contact_extraction_ignores_unrelated_contacts_in_the_same_chunks():
+    question = (
+        "For immediate threatening behavior, what phone numbers and email should I use first and "
+        "then to report it?"
+    )
+    citations = [
+        {
+            "index": 1,
+            "text": (
+                "Email the Conduct Lead at conduct@northstar.example. "
+                "Email Participant Support at support@northstar.example for general help."
+            ),
+        },
+        {
+            "index": 2,
+            "text": (
+                "In an immediate threat, the emergency procedure takes priority over confidential "
+                "conduct reporting: call 5555 from a campus phone or +90 312 555 0155 from a "
+                "mobile before making a conduct report. Call the non-emergency Security Desk at "
+                "+90 312 555 0199 for access questions."
+            ),
+        },
+    ]
+
+    facts = RAGPipeline._emergency_conduct_contact_facts(question, citations)
+
+    assert facts == {
+        "extensions": [("5555", 2)],
+        "phones": [("+90 312 555 0155", 2)],
+        "emails": [("conduct@northstar.example", 1)],
+    }
+
+
+def test_emergency_contact_extraction_is_role_scoped_within_one_sentence():
+    question = (
+        "For immediate threatening behavior, what phone numbers and email should I use first and "
+        "then to report it?"
+    )
+    citations = [
+        {
+            "index": 1,
+            "text": (
+                "Email the Conduct Lead at conduct@northstar.example or email Participant Support "
+                "at support@northstar.example for general help."
+            ),
+        },
+        {
+            "index": 2,
+            "text": (
+                "In an immediate threat, the emergency procedure takes priority over confidential "
+                "reporting: call 5555 from a campus phone or +90 312 555 0155 from a mobile before "
+                "making a conduct report, but call +90 312 555 0199 for non-emergency access help."
+            ),
+        },
+    ]
+
+    facts = RAGPipeline._emergency_conduct_contact_facts(question, citations)
+
+    assert facts == {
+        "extensions": [("5555", 2)],
+        "phones": [("+90 312 555 0155", 2)],
+        "emails": [("conduct@northstar.example", 1)],
+    }
+
+
+def test_incomplete_emergency_contacts_get_one_grounded_repair(tmp_path):
+    class ContactRuntime(FakeRuntime):
+        def __init__(self):
+            super().__init__()
+            self.calls = 0
+
+        def generate(self, messages):
+            self.calls += 1
+            if self.calls == 1:
+                return (
+                    "Use the campus emergency number first [2].\n"
+                    "After immediate safety is addressed, email conduct@northstar.example for "
+                    "the Conduct Lead [1][2]."
+                )
+            repair = messages[-1]["content"]
+            assert "Use exactly three separate cited sentences" in repair
+            assert "5555" in repair
+            assert "+90 312 555 0155" in repair
+            assert "conduct@northstar.example" in repair
+            return (
+                "Apply the emergency procedure before the confidential conduct report [2].\n"
+                "Call campus emergency extension 5555 from a campus phone or "
+                "+90 312 555 0155 from a mobile [2].\n"
+                "After immediate safety is addressed, email the conduct concern to "
+                "conduct@northstar.example for the Conduct Lead [1][2]."
+            )
+
+    question = (
+        "If threatening conduct creates immediate danger, what must I do first, and how do I "
+        "report the conduct afterward? Include the exact contacts."
+    )
+    conduct = (
+        "Email the Conduct Lead at conduct@northstar.example. In an immediate threat, follow the "
+        "Safety Guide and use the campus emergency number first."
+    )
+    safety = (
+        "In an immediate threat, the emergency procedure takes priority over confidential conduct "
+        "reporting: call **5555** from a campus phone or **+90 312 555 0155** from a mobile before "
+        "making a conduct report."
+    )
+    grounded = [
+        RetrievalResult(
+            chunk={
+                "filename": "conduct.md",
+                "text": conduct,
+                "page_start": None,
+                "section": "Reporting",
+            },
+            score=0.9,
+        ),
+        RetrievalResult(
+            chunk={
+                "filename": "safety.md",
+                "text": safety,
+                "page_start": None,
+                "section": "Emergency",
+            },
+            score=0.8,
+        ),
+    ]
+    citations = [
+        {"index": 1, "filename": "conduct.md", "text": conduct},
+        {"index": 2, "filename": "safety.md", "text": safety},
+    ]
+    runtime = ContactRuntime()
+    pipeline = RAGPipeline(TracefoldStore(tmp_path / "tracefold.db"), runtime)
+
+    answer, used = pipeline._generate_validated(question, grounded, citations)
+
+    assert runtime.calls == 2
+    assert "extension 5555" in answer
+    assert "conduct@northstar.example" in answer
+    assert used == citations
 
 
 def test_contact_and_numeric_facts_must_exist_in_the_cited_passage():

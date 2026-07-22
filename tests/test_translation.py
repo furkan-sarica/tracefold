@@ -347,6 +347,19 @@ def test_conduct_route_post_edit_uses_natural_turkish() -> None:
     )
 
 
+def test_conduct_lead_email_post_edit_uses_natural_turkish() -> None:
+    service = ControlledTranslationService(ScriptedEngine([]))
+    rough = (
+        "Acil güvenlik sağlandıktan sonra, Davranış Sorumlusu için "
+        "conduct@northstar.example adresine davranış endişesini e-postayla gönderin"
+    )
+
+    assert service._post_edit_turkish(rough) == (
+        "Acil güvenlik sağlandıktan sonra davranışla ilgili endişeyi "
+        "conduct@northstar.example adresine e-posta göndererek Davranış Sorumlusuna bildirin"
+    )
+
+
 @pytest.mark.parametrize(
     ("source", "translated", "error"),
     [

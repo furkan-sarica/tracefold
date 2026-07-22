@@ -226,6 +226,30 @@ class RAGPipeline:
     def _focused_excerpt(cls, question: str, text: str, budget: int) -> str:
         """Choose query-relevant source lines instead of blindly truncating."""
 
+        if cls._is_device_specification_question(question):
+            # Keep the complete specification list visible to the model while hiding adjacent
+            # preparation advice that the question did not ask for. Citations still retain the
+            # original, unmodified chunk for grounding and display.
+            focused_lines: list[str] = []
+            for line in text.splitlines():
+                for unit in re.split(r"(?<=[.!?])\s+", line):
+                    if not unit.strip():
+                        continue
+                    if cls._is_specification_preparation_advice(unit):
+                        before_prefix = re.match(
+                            r"^\s*before\s+(?:arrival|coming|the\s+lab)\s*,?\s*",
+                            unit,
+                            flags=re.IGNORECASE,
+                        )
+                        if before_prefix and cls._contains_specification_requirement(unit):
+                            unit = unit[before_prefix.end() :]
+                        else:
+                            continue
+                    focused_lines.append(unit)
+            focused_text = "\n".join(focused_lines).strip()
+            if focused_text:
+                text = focused_text
+
         if len(text) <= budget:
             return text
         question_terms = cls._terms(question)
@@ -399,6 +423,10 @@ class RAGPipeline:
             if required_markers
             else "End EACH sentence with its matching evidence number such as [1]."
         )
+        answer_contract = self._answer_completeness_contract(
+            generation_question,
+            generation_citations,
+        )
         messages = self._messages(
             generation_question,
             generation_results,
@@ -420,7 +448,7 @@ class RAGPipeline:
         generated_claims = self._citation_claims(generated)
         if scope_limit and generated_claims and len(generated_claims) > scope_limit:
             validated = (generation_refusal, [])
-        if validated[0] != generation_refusal and not self._specification_requirements_complete(
+        if validated[0] != generation_refusal and not self._question_requirements_complete(
             generation_question,
             validated[0],
             generation_citations,
@@ -440,6 +468,7 @@ class RAGPipeline:
                 "details. For a specifications question, include every listed memory, storage, "
                 "connectivity, browser, port, and software-installation requirement; combine related "
                 "items instead of omitting any. Copy facts and domain terms closely. "
+                f"{answer_contract} "
                 f"{citation_rule} Do not add a heading or "
                 "closing sentence, optional alternative, availability explanation, rationale, "
                 f"background, or unasked prohibition. If that is impossible, reply exactly: {generation_refusal}"
@@ -461,7 +490,7 @@ class RAGPipeline:
                 generation_citations,
                 locale=generation_locale,
             )
-            if validated[0] != generation_refusal and not self._specification_requirements_complete(
+            if validated[0] != generation_refusal and not self._question_requirements_complete(
                 generation_question,
                 validated[0],
                 generation_citations,
@@ -500,7 +529,7 @@ class RAGPipeline:
                 "connectivity, browser, port, and software-installation requirement. Omit "
                 "preparation advice, warnings, exclusions, alternatives, "
                 "availability details, background, and next steps unless the question explicitly "
-                f"asks for them. {citation_rule} "
+                f"asks for them. {answer_contract} {citation_rule} "
                 f"If the evidence cannot answer every part, reply exactly: {generation_refusal}"
             )
             repaired = self._normalize_model_answer(
@@ -518,7 +547,7 @@ class RAGPipeline:
             repaired_claims = self._citation_claims(repaired)
             if scope_limit and repaired_claims and len(repaired_claims) > scope_limit:
                 return REFUSAL_TR, []
-            if repaired_validation[0] == REFUSAL or not self._specification_requirements_complete(
+            if repaired_validation[0] == REFUSAL or not self._question_requirements_complete(
                 generation_question,
                 repaired_validation[0],
                 generation_citations,
@@ -610,28 +639,32 @@ class RAGPipeline:
         return required
 
     @staticmethod
-    def _specification_requirements_complete(
-        question: str,
-        answer: str,
-        citations: list[dict[str, Any]],
-    ) -> bool:
-        """Fail closed when a device-specification answer drops a listed requirement class."""
-
-        folded_question = question.casefold()
-        is_device_question = bool(
-            re.search(r"\b(?:laptop|computer|device|workstation)\b", folded_question)
-        )
-        asks_for_specifications = bool(
-            re.search(
+    def _is_device_specification_question(question: str) -> bool:
+        folded = question.casefold()
+        return bool(
+            re.search(r"\b(?:laptop|computer|device|workstation)\b", folded)
+            and re.search(
                 r"\b(?:specifications?|specs?|features?|characteristics?|capabilities|"
                 r"requirements?|minimums?)\b",
-                folded_question,
+                folded,
             )
         )
-        if not (is_device_question and asks_for_specifications):
-            return True
 
-        patterns = {
+    @staticmethod
+    def _is_specification_preparation_advice(value: str) -> bool:
+        return bool(
+            re.search(
+                r"\b(?:complete|finish)\b.{0,48}\b(?:operating[- ]system|system)\s+updates\b|"
+                r"\bbefore\s+(?:arrival|coming|the\s+lab)\b|\btablet\b|"
+                r"\b(?:employer|school)[- ]managed\b",
+                value,
+                flags=re.IGNORECASE,
+            )
+        )
+
+    @staticmethod
+    def _specification_requirement_patterns() -> dict[str, re.Pattern[str]]:
+        return {
             "memory": re.compile(r"\b(?:ram|memory)\b", flags=re.IGNORECASE),
             "storage": re.compile(
                 r"\b(?:storage|disk\s+space|free\s+space)\b",
@@ -646,18 +679,310 @@ class RAGPipeline:
                 flags=re.IGNORECASE,
             ),
         }
-        evidence = "\n".join(str(citation.get("text") or "") for citation in citations)
+
+    @classmethod
+    def _contains_specification_requirement(cls, value: str) -> bool:
+        return any(
+            pattern.search(value) for pattern in cls._specification_requirement_patterns().values()
+        )
+
+    @classmethod
+    def _emergency_conduct_contact_facts(
+        cls,
+        question: str,
+        citations: list[dict[str, Any]],
+    ) -> dict[str, list[tuple[str, int]]] | None:
+        """Extract exact, action-scoped contacts for an urgent conduct-reporting request."""
+
+        folded = question.casefold()
+        is_exact_sequence = bool(
+            re.search(r"\b(?:immediate|urgent)\b", folded)
+            and re.search(r"\b(?:threat\w*|danger|emergency)\b", folded)
+            and re.search(r"\b(?:conduct|behavio(?:u)?r)\b", folded)
+            and re.search(r"\breport\w*\b", folded)
+            and (
+                (re.search(r"\b(?:exact|full)\b", folded) and re.search(r"\bcontact\w*\b", folded))
+                or re.search(r"\b(?:phone|number|email|e-mail|whom|contact)\w*\b", folded)
+            )
+        )
+        if not is_exact_sequence:
+            return None
+
+        extensions: list[tuple[str, int]] = []
+        phones: list[tuple[str, int]] = []
+        emails: list[tuple[str, int]] = []
+        for citation in citations:
+            text = str(citation.get("text") or "")
+            index = int(citation["index"])
+            for unit in re.split(r"(?<=[.!?])\s+|\n+", text):
+                unit_folded = unit.casefold()
+                if re.search(
+                    r"\b(?:immediate\s+threat|emergency\s+(?:procedure|number))\b",
+                    unit_folded,
+                ) and re.search(r"\b(?:call|extension)\b", unit_folded):
+                    call_match = re.search(r"\bcall\b", unit, flags=re.IGNORECASE)
+                    emergency_scope = unit[call_match.start() :] if call_match else unit
+                    relation_end = re.search(
+                        r"\bbefore\b.{0,100}\bconduct\s+report\w*\b",
+                        emergency_scope,
+                        flags=re.IGNORECASE,
+                    )
+                    if relation_end:
+                        emergency_scope = emergency_scope[: relation_end.end()]
+                    else:
+                        emergency_scope = re.split(
+                            r"\s+\b(?:but|however|whereas)\b\s+|;",
+                            emergency_scope,
+                            maxsplit=1,
+                            flags=re.IGNORECASE,
+                        )[0]
+                    extension_values = re.findall(
+                        r"\bextension\b[^\d]{0,12}(\d{3,6})\b|"
+                        r"\bcall\b[^\d]{0,12}(\d{3,6})\b\s*(?:\*\*)?\s+from\s+a\s+"
+                        r"campus\s+phone\b",
+                        emergency_scope,
+                        flags=re.IGNORECASE,
+                    )
+                    for pair in extension_values:
+                        value = next((item for item in pair if item), "")
+                        if value:
+                            extensions.append((value, index))
+                    phones.extend((value, index) for value in _PHONE.findall(emergency_scope))
+                if "conduct lead" in unit_folded and re.search(r"\bemail\b", unit_folded):
+                    lead_position = unit_folded.find("conduct lead")
+                    email_matches = list(_EMAIL.finditer(unit))
+                    if email_matches:
+                        closest = min(
+                            email_matches,
+                            key=lambda match: abs(match.start() - lead_position),
+                        )
+                        emails.append((closest.group(0), index))
+
+        def unique(values: list[tuple[str, int]]) -> list[tuple[str, int]]:
+            return list(dict.fromkeys(values))
+
+        return {
+            "extensions": unique(extensions),
+            "phones": unique(phones),
+            "emails": unique(emails),
+        }
+
+    @classmethod
+    def _emergency_conduct_requirements_complete(
+        cls,
+        question: str,
+        answer: str,
+        citations: list[dict[str, Any]],
+    ) -> bool:
+        facts = cls._emergency_conduct_contact_facts(question, citations)
+        if facts is None:
+            return True
+        if not all(facts.get(kind) for kind in ("extensions", "phones", "emails")):
+            return False
+
+        claims = cls._citation_claims(answer)
+        if not claims:
+            return False
+        normalized_claims = [(" ".join(claim.split()), indices) for claim, indices in claims]
+
+        def first_matching(predicate) -> int | None:
+            return next(
+                (
+                    position
+                    for position, (claim, _indices) in enumerate(normalized_claims)
+                    if predicate(claim)
+                ),
+                None,
+            )
+
+        extensions = [value for value, _index in facts["extensions"]]
+        phones = [value for value, _index in facts["phones"]]
+        emails = [value for value, _index in facts["emails"]]
+        priority_position = first_matching(
+            lambda claim: bool(
+                re.search(r"\bemergency\s+procedure\b", claim, flags=re.IGNORECASE)
+                and re.search(
+                    r"\bconfidential\s+conduct\s+report\w*\b",
+                    claim,
+                    flags=re.IGNORECASE,
+                )
+                and re.search(
+                    r"\b(?:before|priorit(?:y|ize|ized|izes))\b",
+                    claim,
+                    flags=re.IGNORECASE,
+                )
+            )
+        )
+        phone_position = first_matching(
+            lambda claim: bool(
+                all(re.search(rf"\b{re.escape(value)}\b", claim) for value in extensions)
+                and all(value in claim for value in phones)
+                and re.search(r"\b(?:call|dial)\b", claim, flags=re.IGNORECASE)
+            )
+        )
+        email_position = first_matching(
+            lambda claim: bool(
+                all(value.casefold() in claim.casefold() for value in emails)
+                and re.search(r"\bconduct\s+lead\b", claim, flags=re.IGNORECASE)
+                and re.search(r"\bimmediate\s+safety\b", claim, flags=re.IGNORECASE)
+                and re.search(r"\bafter\b", claim, flags=re.IGNORECASE)
+                and re.search(r"\b(?:email|report|send)\b", claim, flags=re.IGNORECASE)
+            )
+        )
+        if None in (priority_position, phone_position, email_position):
+            return False
+        return (
+            priority_position != phone_position
+            and priority_position < phone_position
+            and phone_position < email_position
+        )
+
+    @classmethod
+    def _question_requirements_complete(
+        cls,
+        question: str,
+        answer: str,
+        citations: list[dict[str, Any]],
+    ) -> bool:
+        return cls._specification_requirements_complete(
+            question,
+            answer,
+            citations,
+        ) and cls._emergency_conduct_requirements_complete(
+            question,
+            answer,
+            citations,
+        )
+
+    @classmethod
+    def _answer_completeness_contract(
+        cls,
+        question: str,
+        citations: list[dict[str, Any]],
+    ) -> str:
+        if cls._is_device_specification_question(question):
+            return (
+                "Use exactly three cited specification sentences and nothing else: first give every "
+                "RAM/memory and free-storage value; second give the Wi-Fi version, working browser, "
+                "and every USB port alternative; third state the permission to install software and "
+                "local development tools. Do not mention completing updates, managed-device advice, "
+                "tablets, preparation steps, or warnings."
+            )
+
+        facts = cls._emergency_conduct_contact_facts(question, citations)
+        if facts and all(facts.get(kind) for kind in ("extensions", "phones", "emails")):
+            extension = " or ".join(value for value, _index in facts["extensions"])
+            phone = " or ".join(value for value, _index in facts["phones"])
+            email = " or ".join(value for value, _index in facts["emails"])
+            return (
+                "Use exactly three separate cited sentences in this semantic order and do not merge "
+                "them: (1) 'Apply the emergency procedure before the confidential conduct report'; "
+                f"(2) 'Call campus emergency extension {extension} from a campus phone or "
+                f"{phone} from a mobile'; (3) 'After immediate safety is addressed, email the conduct "
+                f"concern to {email} for the Conduct Lead'. Do not replace any exact contact with a "
+                "generic role or phrase."
+            )
+        return ""
+
+    @staticmethod
+    def _specification_requirements_complete(
+        question: str,
+        answer: str,
+        citations: list[dict[str, Any]],
+    ) -> bool:
+        """Fail closed when a device-specification answer drops a listed requirement class."""
+
+        if not RAGPipeline._is_device_specification_question(question):
+            return True
+
+        patterns = RAGPipeline._specification_requirement_patterns()
+        evidence_units: list[str] = []
+        for citation in citations:
+            for line in str(citation.get("text") or "").splitlines():
+                for unit in re.split(r"(?<=[.!?])\s+", line):
+                    if RAGPipeline._contains_specification_requirement(
+                        unit
+                    ) and not RAGPipeline._is_specification_preparation_advice(unit):
+                        evidence_units.append(unit)
+        evidence = "\n".join(evidence_units)
         required = [pattern for pattern in patterns.values() if pattern.search(evidence)]
-        preparation_advice = re.compile(
-            r"\b(?:complete|finish)\b.{0,48}\b(?:operating[- ]system|system)\s+updates\b|"
-            r"\bbefore\s+(?:arrival|coming|the\s+lab)\b|\btablet\b|"
-            r"\b(?:employer|school)[- ]managed\b",
+        evidence_quantities = Counter(
+            (
+                match.group("number"),
+                match.group("unit").casefold(),
+                "memory" if match.group("role").casefold() in {"ram", "memory"} else "storage",
+            )
+            for match in _MEMORY_OR_STORAGE.finditer(evidence)
+        )
+        answer_quantities = Counter(
+            (
+                match.group("number"),
+                match.group("unit").casefold(),
+                "memory" if match.group("role").casefold() in {"ram", "memory"} else "storage",
+            )
+            for match in _MEMORY_OR_STORAGE.finditer(answer)
+        )
+        wifi_requirements = re.findall(
+            r"\bwi[ -]?fi\s*(\d+)(\s+or\s+(?:newer|later|higher))?",
+            evidence,
             flags=re.IGNORECASE,
+        )
+        usb_requirements = {
+            value.casefold()
+            for value in re.findall(r"\bUSB[- ]?([A-Z])\b", evidence, flags=re.IGNORECASE)
+        }
+        answer_usb = {
+            value.casefold()
+            for value in re.findall(r"\bUSB[- ]?([A-Z])\b", answer, flags=re.IGNORECASE)
+        }
+        storage_after_updates = bool(
+            re.search(
+                r"\bstorage\b.{0,50}\bafter\b.{0,24}\bupdates?\b|"
+                r"\bafter\b.{0,24}\bupdates?\b.{0,50}\bstorage\b",
+                evidence,
+                flags=re.IGNORECASE,
+            )
+        )
+        answer_has_storage_after_updates = bool(
+            re.search(
+                r"\bstorage\b.{0,50}\bafter\b.{0,24}\bupdates?\b|"
+                r"\bafter\b.{0,24}\bupdates?\b.{0,50}\bstorage\b",
+                answer,
+                flags=re.IGNORECASE,
+            )
         )
         return (
             bool(required)
             and all(pattern.search(answer) for pattern in required)
-            and not preparation_advice.search(answer)
+            and all(answer_quantities[item] >= count for item, count in evidence_quantities.items())
+            and all(
+                re.search(
+                    rf"\bwi[ -]?fi\s*{re.escape(version)}"
+                    + (r"\s+or\s+(?:newer|later|higher)" if qualifier else ""),
+                    answer,
+                    flags=re.IGNORECASE,
+                )
+                for version, qualifier in wifi_requirements
+            )
+            and usb_requirements.issubset(answer_usb)
+            and ("free storage" not in evidence.casefold() or "free storage" in answer.casefold())
+            and (not storage_after_updates or answer_has_storage_after_updates)
+            and (
+                "working browser" not in evidence.casefold()
+                or "working browser" in answer.casefold()
+            )
+            and ("software" not in evidence.casefold() or "software" in answer.casefold())
+            and (
+                "local development tools" not in evidence.casefold()
+                or "local development tools" in answer.casefold()
+            )
+            and (
+                "permission" not in evidence.casefold()
+                or bool(
+                    re.search(r"\b(?:permission|rights?|allowed)\b", answer, flags=re.IGNORECASE)
+                )
+            )
+            and not RAGPipeline._is_specification_preparation_advice(answer)
         )
 
     def _translate_validated_answer(

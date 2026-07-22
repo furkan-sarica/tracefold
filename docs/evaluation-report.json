@@ -1,29 +1,30 @@
 {
-  "id": "eval_ff04d3cda53c46cb83202315c9fdf231",
+  "id": "eval_4a981a2e3bca4c67a4953dca6c5c8d45",
   "dataset_id": "northstar-summer-lab-2026-bilingual-parity-v3",
   "status": "complete",
-  "created_at": "2026-07-18T19:20:49.768352+00:00",
-  "retrieval_p95_ms": 3213.6,
+  "created_at": "2026-07-22T09:33:51.208102+00:00",
+  "retrieval_p95_ms": 3257.04,
   "metrics": {
     "total_cases": 24,
     "answerable_cases": 16,
     "negative_cases": 8,
-    "passed_cases": 15,
-    "hit_at_k": 0.9375,
-    "source_recall_at_k": 0.9375,
-    "citation_precision": 0.7188,
-    "citation_accuracy": 0.75,
+    "passed_cases": 20,
+    "hit_at_k": 1.0,
+    "source_recall_at_k": 1.0,
+    "citation_precision": 0.875,
+    "citation_accuracy": 0.875,
     "citation_sentence_coverage": 1.0,
     "protected_fact_grounding_accuracy": 1.0,
     "protected_fact_completeness": 0.8125,
-    "snippet_token_recall": 0.6032,
-    "required_fact_recall": 0.5632,
-    "required_fact_completeness": 0.5625,
+    "snippet_token_recall": 0.7414,
+    "required_fact_recall": 0.659,
+    "required_order_accuracy": 0.5,
+    "required_fact_completeness": 0.75,
     "custom_term_accuracy": null,
     "language_quality_accuracy": 1.0,
-    "refusal_accuracy": 0.875,
-    "average_retrieval_ms": 994.89,
-    "retrieval_p95_ms": 3213.6,
+    "refusal_accuracy": 1.0,
+    "average_retrieval_ms": 1581.89,
+    "retrieval_p95_ms": 3257.04,
     "locales": [
       "en",
       "tr"
@@ -36,47 +37,49 @@
         "passed_cases": 10,
         "hit_at_k": 1.0,
         "source_recall_at_k": 1.0,
-        "citation_precision": 0.9375,
-        "citation_accuracy": 1.0,
+        "citation_precision": 0.875,
+        "citation_accuracy": 0.875,
         "citation_sentence_coverage": 1.0,
         "protected_fact_grounding_accuracy": 1.0,
-        "protected_fact_completeness": 1.0,
-        "snippet_token_recall": 0.8875,
-        "required_fact_recall": 0.82,
-        "required_fact_completeness": 0.875,
+        "protected_fact_completeness": 0.75,
+        "snippet_token_recall": 0.7607,
+        "required_fact_recall": 0.6934,
+        "required_order_accuracy": 0.0,
+        "required_fact_completeness": 0.75,
         "custom_term_accuracy": null,
         "language_quality_accuracy": 1.0,
         "refusal_accuracy": 1.0,
-        "average_retrieval_ms": 218.63,
-        "retrieval_p95_ms": 691.2
+        "average_retrieval_ms": 1272.22,
+        "retrieval_p95_ms": 3097.15
       },
       "tr": {
         "total_cases": 12,
         "answerable_cases": 8,
         "negative_cases": 4,
-        "passed_cases": 5,
-        "hit_at_k": 0.875,
-        "source_recall_at_k": 0.875,
-        "citation_precision": 0.5,
-        "citation_accuracy": 0.5,
+        "passed_cases": 10,
+        "hit_at_k": 1.0,
+        "source_recall_at_k": 1.0,
+        "citation_precision": 0.875,
+        "citation_accuracy": 0.875,
         "citation_sentence_coverage": 1.0,
         "protected_fact_grounding_accuracy": 1.0,
-        "protected_fact_completeness": 0.625,
-        "snippet_token_recall": 0.3189,
-        "required_fact_recall": 0.3063,
-        "required_fact_completeness": 0.25,
+        "protected_fact_completeness": 0.875,
+        "snippet_token_recall": 0.7221,
+        "required_fact_recall": 0.6246,
+        "required_order_accuracy": 1.0,
+        "required_fact_completeness": 0.75,
         "custom_term_accuracy": null,
         "language_quality_accuracy": 1.0,
-        "refusal_accuracy": 0.75,
-        "average_retrieval_ms": 1771.15,
-        "retrieval_p95_ms": 4279.78
+        "refusal_accuracy": 1.0,
+        "average_retrieval_ms": 1891.56,
+        "retrieval_p95_ms": 4661.6
       }
     },
     "bilingual_pairs_evaluated": 12,
-    "bilingual_pair_accuracy": 0.4167,
-    "model_warmup_ms": 58.9,
+    "bilingual_pair_accuracy": 0.8333,
+    "model_warmup_ms": 64.73,
     "top_k": 5,
-    "retrieval_threshold": 0.55,
+    "retrieval_threshold": 0.6,
     "run_context": {
       "dataset_id": "northstar-summer-lab-2026-bilingual-parity-v3",
       "runtime": {
@@ -116,16 +119,16 @@
             "id": "Helsinki-NLP/opus-mt-tc-big-en-tr",
             "revision": "e539fc16a8a1a0ea5950eb339b595bfcce990e90",
             "cached": true,
-            "loaded": false
+            "loaded": true
           }
         },
         "error": null,
         "glossary": {
           "id": "northstar-summer-lab-en-tr-v1",
-          "entries": 42,
+          "entries": 55,
           "scope": "Controlled terminology for the fictional Northstar Summer Lab demonstration corpus. It is extensible per deployment and is not a general English-Turkish dictionary."
         },
-        "round_trip_threshold": 0.4
+        "round_trip_threshold": 0.6
       },
       "platform": {
         "system": "Darwin",
@@ -133,22 +136,23 @@
         "machine": "arm64"
       },
       "code_provenance": {
-        "revision": "998884f82527f324746d300c0e19c8679999c283",
-        "dirty": true,
+        "revision": "8324d7dca47421fab3ce4851417f412b3b190d7e",
+        "dirty": false,
         "source": "git"
       },
       "configuration": {
         "chunk_size": 240,
         "chunk_overlap": 45,
         "top_k": 5,
-        "retrieval_threshold": 0.55,
+        "retrieval_threshold": 0.6,
         "evidence_floor": 0.3,
         "max_chunks_per_document": 2,
-        "context_char_budget": 1800,
+        "max_context_chunks": 4,
+        "context_char_budget": 3200,
         "translation_runtime": "marian",
         "translation_beams": 4,
         "translation_max_tokens": 256,
-        "translation_round_trip_threshold": 0.4,
+        "translation_round_trip_threshold": 0.6,
         "translation_glossary_id": "northstar-summer-lab-en-tr-v1",
         "locales": [
           "en",
@@ -178,7 +182,7 @@
       "locale": "en",
       "paired_case_id": null,
       "answerable": true,
-      "answer": "Northstar Summer Lab 2026 takes place from Monday, 3 August through Friday, 14 August 2026 at Meridian Innovation Campus, Orion Building, 42 Polaris Avenue, Ankara [1]. The standard weekday program runs from 09:00 to 17:00 [1].",
+      "answer": "The event is [Monday, 3 August through Friday, 14 August 2026], and participants assemble at [Meridian Innovation Campus, Orion Building, 42 Polaris Avenue, Ankara] [1].",
       "expected_sources": [
         "01-program-handbook.md"
       ],
@@ -199,12 +203,13 @@
       "protected_fact_complete": true,
       "language_quality": true,
       "snippet_token_recall": 1.0,
-      "required_fact_recall": 1.0,
+      "required_fact_recall": 0.8072,
       "required_fact_complete": true,
+      "required_order_complete": null,
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 56.08
+      "retrieval_ms": 58.48
     },
     {
       "id": "NSL-A02",
@@ -214,7 +219,7 @@
       "locale": "en",
       "paired_case_id": null,
       "answerable": true,
-      "answer": "1. Call the Residence Duty Phone at +90 312 555 0149 before 19:30 to arrange key collection [1].\n2. Send your revised arrival time to the Program Office at program@northstar.example [1].",
+      "answer": "Call the Residence Duty Phone at +90 312 555 0149 before 19:30 to arrange key collection [1] [2]. Send your revised arrival time to the Program Office at program@northstar.example [1]. Taxi or public transport costs due to a late arrival are your responsibility [1].",
       "expected_sources": [
         "03-travel-guide.md",
         "04-accommodation-guide.md",
@@ -226,7 +231,8 @@
         "08-contacts-directory.md"
       ],
       "cited_sources": [
-        "03-travel-guide.md"
+        "03-travel-guide.md",
+        "08-contacts-directory.md"
       ],
       "hit": true,
       "source_recall": 1.0,
@@ -237,12 +243,13 @@
       "protected_fact_complete": true,
       "language_quality": true,
       "snippet_token_recall": 0.9333,
-      "required_fact_recall": 0.9273,
+      "required_fact_recall": 0.95,
       "required_fact_complete": true,
+      "required_order_complete": null,
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 176.15
+      "retrieval_ms": 1565.21
     },
     {
       "id": "NSL-A03",
@@ -252,7 +259,7 @@
       "locale": "en",
       "paired_case_id": null,
       "answerable": true,
-      "answer": "Your laptop must have 16 GB RAM, 60 GB free storage after updates, Wi-Fi 5 or newer, a working browser, and USB-C or USB-A ports [1].\nEnsure your laptop can install software and local development tools [1].\nComplete all operating-system updates before arriving at the lab [1].\nFor detailed information, refer to the Equipment Guide [2].",
+      "answer": "I couldn't find enough evidence in the indexed documents to answer that.",
       "expected_sources": [
         "06-equipment-guide.md"
       ],
@@ -261,25 +268,23 @@
         "06-equipment-guide.md",
         "08-contacts-directory.md"
       ],
-      "cited_sources": [
-        "01-program-handbook.md",
-        "06-equipment-guide.md"
-      ],
+      "cited_sources": [],
       "hit": true,
       "source_recall": 1.0,
-      "citation_precision": 0.5,
-      "citation_correct": true,
-      "citation_sentence_coverage": true,
-      "protected_fact_grounded": true,
-      "protected_fact_complete": true,
+      "citation_precision": 0.0,
+      "citation_correct": false,
+      "citation_sentence_coverage": null,
+      "protected_fact_grounded": null,
+      "protected_fact_complete": false,
       "language_quality": true,
-      "snippet_token_recall": 0.8,
-      "required_fact_recall": 0.7103,
-      "required_fact_complete": true,
+      "snippet_token_recall": 0.0,
+      "required_fact_recall": 0.0,
+      "required_fact_complete": false,
+      "required_order_complete": null,
       "term_match": null,
-      "refusal_correct": true,
+      "refusal_correct": false,
       "passed": false,
-      "retrieval_ms": 444.84
+      "retrieval_ms": 2869.97
     },
     {
       "id": "NSL-A04",
@@ -289,7 +294,7 @@
       "locale": "en",
       "paired_case_id": null,
       "answerable": true,
-      "answer": "If you miss the mandatory safety induction, you must arrange a make-up induction with the Safety Officer and continue software-only work until you are signed off [2]. You cannot enter the Fabrication Studio until you complete this make-up induction [1].",
+      "answer": "If you miss the mandatory safety induction, you may continue software-only work but cannot enter the Fabrication Studio until you complete a make-up induction with the Safety Officer [1] [2].",
       "expected_sources": [
         "01-program-handbook.md",
         "05-safety-guide.md"
@@ -313,12 +318,13 @@
       "protected_fact_complete": true,
       "language_quality": true,
       "snippet_token_recall": 0.8571,
-      "required_fact_recall": 0.75,
+      "required_fact_recall": 0.8333,
       "required_fact_complete": true,
+      "required_order_complete": null,
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 205.75
+      "retrieval_ms": 1405.92
     },
     {
       "id": "NSL-A05",
@@ -328,7 +334,7 @@
       "locale": "en",
       "paired_case_id": null,
       "answerable": true,
-      "answer": "Checkout must be completed by 10:00 on Saturday, 15 August 2026 [2].\nReturn the room key and borrowed linen bag to reception upon checkout [2].\nParticipants using the 12:30 shuttle must leave their luggage in the tagged storage area after returning their key [1].\nLuggage can be stored in the tagged ground-floor room until 12:15 for those using the final departure shuttle [2].",
+      "answer": "Participants must check out by 10:00 on Saturday, 15 August, returning their room key and borrowed linen bag to reception [2]. After checking out, luggage can be left in the tagged ground-floor room until 12:15 for those using the final departure shuttle [2].",
       "expected_sources": [
         "03-travel-guide.md",
         "04-accommodation-guide.md"
@@ -340,7 +346,6 @@
         "08-contacts-directory.md"
       ],
       "cited_sources": [
-        "03-travel-guide.md",
         "04-accommodation-guide.md"
       ],
       "hit": true,
@@ -352,12 +357,13 @@
       "protected_fact_complete": true,
       "language_quality": true,
       "snippet_token_recall": 0.8667,
-      "required_fact_recall": 0.8452,
+      "required_fact_recall": 0.6905,
       "required_fact_complete": true,
+      "required_order_complete": null,
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 74.75
+      "retrieval_ms": 1397.5
     },
     {
       "id": "NSL-A06",
@@ -367,7 +373,7 @@
       "locale": "en",
       "paired_case_id": null,
       "answerable": true,
-      "answer": "- Follow the emergency procedure first: call **5555** from a campus phone or **+90 312 555 0155** from a mobile [2].\n- After addressing the immediate threat, report the conduct concern confidentially to the Conduct Lead at **conduct@northstar.example** [1][2].\n- Alternatively, ask Participant Support to assist in making the report [1].",
+      "answer": "In an immediate threat, use the campus emergency number first [2]. After addressing the immediate danger, report the conduct concern through the confidential routes detailed in the Code of Conduct: email the Conduct Lead at conduct@northstar.example or ask Participant Support to assist with the report [1] [2].",
       "expected_sources": [
         "05-safety-guide.md",
         "07-code-of-conduct.md",
@@ -389,15 +395,16 @@
       "citation_correct": true,
       "citation_sentence_coverage": true,
       "protected_fact_grounded": true,
-      "protected_fact_complete": true,
+      "protected_fact_complete": false,
       "language_quality": true,
-      "snippet_token_recall": 0.6429,
-      "required_fact_recall": 0.6111,
+      "snippet_token_recall": 0.4286,
+      "required_fact_recall": 0.5,
       "required_fact_complete": false,
+      "required_order_complete": false,
       "term_match": null,
       "refusal_correct": true,
       "passed": false,
-      "retrieval_ms": 691.2
+      "retrieval_ms": 2694.39
     },
     {
       "id": "NSL-A07",
@@ -407,7 +414,7 @@
       "locale": "en",
       "paired_case_id": null,
       "answerable": true,
-      "answer": "The evacuation drill is on Tuesday, 4 August, at 11:30 [1]. People in the Orion Building should assemble at North Lawn beside the blue beacon [2].",
+      "answer": "The evacuation drill is 11:30 on Tuesday, 4 August, and people in Orion Building should assemble at North Lawn beside the blue beacon [1] [2].",
       "expected_sources": [
         "05-safety-guide.md"
       ],
@@ -430,10 +437,11 @@
       "snippet_token_recall": 1.0,
       "required_fact_recall": 0.873,
       "required_fact_complete": true,
+      "required_order_complete": null,
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 247.51
+      "retrieval_ms": 424.77
     },
     {
       "id": "NSL-A08",
@@ -443,7 +451,7 @@
       "locale": "en",
       "paired_case_id": null,
       "answerable": true,
-      "answer": "Return the laptop, charger, and sleeve by 17:30 on Friday, 14 August [2].\nThis deadline is 30 minutes after the team handoff due at 17:00 on the same day [1].",
+      "answer": "Return the loan laptop, charger, and sleeve by 17:30 on Friday, 14 August; This deadline is 30 minutes after the team handoff due at 17:00 on the same day [1] [2].",
       "expected_sources": [
         "06-equipment-guide.md"
       ],
@@ -464,12 +472,13 @@
       "protected_fact_complete": true,
       "language_quality": true,
       "snippet_token_recall": 1.0,
-      "required_fact_recall": 0.8428,
+      "required_fact_recall": 0.8928,
       "required_fact_complete": true,
+      "required_order_complete": null,
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 274.95
+      "retrieval_ms": 3097.15
     },
     {
       "id": "NSL-U01",
@@ -494,10 +503,11 @@
       "snippet_token_recall": 1.0,
       "required_fact_recall": null,
       "required_fact_complete": null,
+      "required_order_complete": null,
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 262.73
+      "retrieval_ms": 1549.73
     },
     {
       "id": "NSL-U02",
@@ -522,10 +532,11 @@
       "snippet_token_recall": 1.0,
       "required_fact_recall": null,
       "required_fact_complete": null,
+      "required_order_complete": null,
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 77.43
+      "retrieval_ms": 81.3
     },
     {
       "id": "NSL-U03",
@@ -550,10 +561,11 @@
       "snippet_token_recall": 1.0,
       "required_fact_recall": null,
       "required_fact_complete": null,
+      "required_order_complete": null,
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 54.38
+      "retrieval_ms": 62.74
     },
     {
       "id": "NSL-U04",
@@ -565,13 +577,7 @@
       "answerable": false,
       "answer": "I couldn't find enough evidence in the indexed documents to answer that.",
       "expected_sources": [],
-      "retrieved_sources": [
-        "01-program-handbook.md",
-        "03-travel-guide.md",
-        "05-safety-guide.md",
-        "06-equipment-guide.md",
-        "08-contacts-directory.md"
-      ],
+      "retrieved_sources": [],
       "cited_sources": [],
       "hit": null,
       "source_recall": null,
@@ -584,10 +590,11 @@
       "snippet_token_recall": 1.0,
       "required_fact_recall": null,
       "required_fact_complete": null,
+      "required_order_complete": null,
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 57.77
+      "retrieval_ms": 59.53
     },
     {
       "id": "NSL-TR-A01",
@@ -597,7 +604,7 @@
       "locale": "tr",
       "paired_case_id": "NSL-A01",
       "answerable": true,
-      "answer": "Northstar Summer Lab 2026 senesinin programı 3 Ağustos 2026 Cumartesi ile 14 Ağustos 2026 Cuma tarihleri arasında gerçekleşecektir [1]. Program Ankara'daki Meridian Innovation Campus, Orion Binası, 42 Polaris Cadesi adresinde yapılacak [1]. Haftaiçi program 09:00 ile 17:00 saatleri arasında gerçekleşecektir [1].",
+      "answer": "Etkinlik 3 Ağustos 2026 Pazartesi günü arasında. [1]\n14 Ağustos 2026 Cuma ve katılımcılar Meridian Innovation Campus, Orion Building, 42 Polaris Avenue, Ankara'da toplanmalı. [1]",
       "expected_sources": [
         "01-program-handbook.md"
       ],
@@ -617,13 +624,14 @@
       "protected_fact_grounded": true,
       "protected_fact_complete": true,
       "language_quality": true,
-      "snippet_token_recall": 0.8462,
-      "required_fact_recall": 0.7291,
+      "snippet_token_recall": 1.0,
+      "required_fact_recall": 0.6875,
       "required_fact_complete": true,
+      "required_order_complete": null,
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 807.05
+      "retrieval_ms": 358.63
     },
     {
       "id": "NSL-TR-A02",
@@ -633,34 +641,37 @@
       "locale": "tr",
       "paired_case_id": "NSL-A02",
       "answerable": true,
-      "answer": "Kütüphanenizde bu soruyu yanıtlamak için yeterli kanıt bulamadım.",
+      "answer": "19:30'dan önce +90 312 555 0149 numaralı Yurt Nöbet Telefonunu arayın ve anahtarınızı nasıl teslim alacağınızı ayarlayın. [1][3]\nGüncellenen varış saatinizi program@northstar.example adresine e-posta göndererek Program Ofisine bildirin. [1]",
       "expected_sources": [
         "03-travel-guide.md",
         "04-accommodation-guide.md",
         "08-contacts-directory.md"
       ],
       "retrieved_sources": [
-        "01-program-handbook.md",
         "03-travel-guide.md",
         "04-accommodation-guide.md",
         "08-contacts-directory.md"
       ],
-      "cited_sources": [],
+      "cited_sources": [
+        "03-travel-guide.md",
+        "08-contacts-directory.md"
+      ],
       "hit": true,
       "source_recall": 1.0,
-      "citation_precision": 0.0,
-      "citation_correct": false,
-      "citation_sentence_coverage": null,
-      "protected_fact_grounded": null,
-      "protected_fact_complete": false,
+      "citation_precision": 1.0,
+      "citation_correct": true,
+      "citation_sentence_coverage": true,
+      "protected_fact_grounded": true,
+      "protected_fact_complete": true,
       "language_quality": true,
-      "snippet_token_recall": 0.0,
-      "required_fact_recall": 0.0,
-      "required_fact_complete": false,
+      "snippet_token_recall": 0.9474,
+      "required_fact_recall": 0.6805,
+      "required_fact_complete": true,
+      "required_order_complete": null,
       "term_match": null,
-      "refusal_correct": false,
-      "passed": false,
-      "retrieval_ms": 2065.21
+      "refusal_correct": true,
+      "passed": true,
+      "retrieval_ms": 3079.41
     },
     {
       "id": "NSL-TR-A03",
@@ -691,10 +702,11 @@
       "snippet_token_recall": 0.0,
       "required_fact_recall": 0.0,
       "required_fact_complete": false,
+      "required_order_complete": null,
       "term_match": null,
       "refusal_correct": false,
       "passed": false,
-      "retrieval_ms": 3213.6
+      "retrieval_ms": 4661.6
     },
     {
       "id": "NSL-TR-A04",
@@ -704,28 +716,37 @@
       "locale": "tr",
       "paired_case_id": "NSL-A04",
       "answerable": true,
-      "answer": "Kütüphanenizde bu soruyu yanıtlamak için yeterli kanıt bulamadım.",
+      "answer": "Zorunlu güvenlik oryantasyonunu kaçırırsanız, yalnızca yazılım çalışmasına devam edebilirsiniz, ancak Güvenlik Sorumlusuyla telafi oryantasyonunu tamamlayana kadar Üretim Atölyesine giremezsiniz. [1][2]",
       "expected_sources": [
         "01-program-handbook.md",
         "05-safety-guide.md"
       ],
-      "retrieved_sources": [],
-      "cited_sources": [],
-      "hit": false,
-      "source_recall": 0.0,
-      "citation_precision": 0.0,
-      "citation_correct": false,
-      "citation_sentence_coverage": null,
-      "protected_fact_grounded": null,
+      "retrieved_sources": [
+        "01-program-handbook.md",
+        "05-safety-guide.md",
+        "07-code-of-conduct.md",
+        "08-contacts-directory.md"
+      ],
+      "cited_sources": [
+        "01-program-handbook.md",
+        "05-safety-guide.md"
+      ],
+      "hit": true,
+      "source_recall": 1.0,
+      "citation_precision": 1.0,
+      "citation_correct": true,
+      "citation_sentence_coverage": true,
+      "protected_fact_grounded": true,
       "protected_fact_complete": true,
       "language_quality": true,
-      "snippet_token_recall": 0.0,
-      "required_fact_recall": 0.0,
-      "required_fact_complete": false,
+      "snippet_token_recall": 0.6429,
+      "required_fact_recall": 0.7778,
+      "required_fact_complete": true,
+      "required_order_complete": null,
       "term_match": null,
-      "refusal_correct": false,
-      "passed": false,
-      "retrieval_ms": 1668.82
+      "refusal_correct": true,
+      "passed": true,
+      "retrieval_ms": 3257.04
     },
     {
       "id": "NSL-TR-A05",
@@ -735,19 +756,18 @@
       "locale": "tr",
       "paired_case_id": "NSL-A05",
       "answerable": true,
-      "answer": "10:00'a kadar odadan ayrılın ve anahtar ve ödünç alınan bez torbasını resepsiyona iade edin.[4]\nServise 12:30'a katılan katılımcılar, bagajlarını etiketli depolama alanına bırakın.[3]\nSon servise katılanlar, 12:15'e kadar bagajlarını etiketli yerde saklayabilirler.[4]",
+      "answer": "Katılımcılar, 15 Ağustos 2026 Cumartesi günü saat 10:00'a kadar çıkış yapmalı, oda anahtarını ve ödünç aldıkları nevresim torbasını resepsiyona teslim etmelidir. [2]\nBagaj, son kalkış servisi kullananlar için 12:15'e kadar zemin kattaki etiketli bagaj muhafaza odasında bırakılabilir. [2]",
       "expected_sources": [
         "03-travel-guide.md",
         "04-accommodation-guide.md"
       ],
       "retrieved_sources": [
-        "01-program-handbook.md",
         "03-travel-guide.md",
         "04-accommodation-guide.md",
+        "05-safety-guide.md",
         "08-contacts-directory.md"
       ],
       "cited_sources": [
-        "03-travel-guide.md",
         "04-accommodation-guide.md"
       ],
       "hit": true,
@@ -758,13 +778,14 @@
       "protected_fact_grounded": true,
       "protected_fact_complete": true,
       "language_quality": true,
-      "snippet_token_recall": 0.5,
-      "required_fact_recall": 0.3889,
-      "required_fact_complete": false,
+      "snippet_token_recall": 0.6111,
+      "required_fact_recall": 0.7111,
+      "required_fact_complete": true,
+      "required_order_complete": null,
       "term_match": null,
       "refusal_correct": true,
-      "passed": false,
-      "retrieval_ms": 228.91
+      "passed": true,
+      "retrieval_ms": 1768.41
     },
     {
       "id": "NSL-TR-A06",
@@ -774,7 +795,7 @@
       "locale": "tr",
       "paired_case_id": "NSL-A06",
       "answerable": true,
-      "answer": "Kütüphanenizde bu soruyu yanıtlamak için yeterli kanıt bulamadım.",
+      "answer": "İlk olarak, kampüs telefonundan 5555 dahili numarasını arayın veya bir cep telefonundan +90 312 555 0155 numaralı telefonu arayın. [2]\nAcil tehdidi ele aldıktan sonra, conduct@northstar.example adresine e-posta göndermeyi içeren Davranış Kuralları'ndaki gizli yolları kullanarak davranışı bildirin. [1][2]",
       "expected_sources": [
         "05-safety-guide.md",
         "07-code-of-conduct.md",
@@ -786,22 +807,26 @@
         "07-code-of-conduct.md",
         "08-contacts-directory.md"
       ],
-      "cited_sources": [],
+      "cited_sources": [
+        "05-safety-guide.md",
+        "07-code-of-conduct.md"
+      ],
       "hit": true,
       "source_recall": 1.0,
-      "citation_precision": 0.0,
-      "citation_correct": false,
-      "citation_sentence_coverage": null,
-      "protected_fact_grounded": null,
-      "protected_fact_complete": false,
+      "citation_precision": 1.0,
+      "citation_correct": true,
+      "citation_sentence_coverage": true,
+      "protected_fact_grounded": true,
+      "protected_fact_complete": true,
       "language_quality": true,
-      "snippet_token_recall": 0.0,
-      "required_fact_recall": 0.0,
+      "snippet_token_recall": 0.8125,
+      "required_fact_recall": 0.5301,
       "required_fact_complete": false,
+      "required_order_complete": true,
       "term_match": null,
-      "refusal_correct": false,
+      "refusal_correct": true,
       "passed": false,
-      "retrieval_ms": 420.35
+      "retrieval_ms": 2314.06
     },
     {
       "id": "NSL-TR-A07",
@@ -811,7 +836,7 @@
       "locale": "tr",
       "paired_case_id": "NSL-A07",
       "answerable": true,
-      "answer": "Tahliye tatbikatı **4 Ağustos Salı günü saat 11:30** yapılıyor [1]. Orion Building'daki kişiler, acil durumda **Kuzey Bahçe'ye** doğru yönlendirilecekler [2]. Kuzey Bahçe, mavi fenerin yanındaki yerdir [2].",
+      "answer": "Planlanan tahliye tatbikatı 4 Ağustos Salı günü saat 11:30'da yapılacak. [1][2]\nOrion Building'deki kişiler, mavi işaret lambasının yanında North Lawn'da toplanmalıdır. [1][2]",
       "expected_sources": [
         "05-safety-guide.md"
       ],
@@ -831,13 +856,14 @@
       "protected_fact_grounded": true,
       "protected_fact_complete": true,
       "language_quality": true,
-      "snippet_token_recall": 0.6667,
-      "required_fact_recall": 0.6363,
-      "required_fact_complete": false,
+      "snippet_token_recall": 0.9167,
+      "required_fact_recall": 0.9091,
+      "required_fact_complete": true,
+      "required_order_complete": null,
       "term_match": null,
       "refusal_correct": true,
-      "passed": false,
-      "retrieval_ms": 2958.64
+      "passed": true,
+      "retrieval_ms": 927.9
     },
     {
       "id": "NSL-TR-A08",
@@ -847,14 +873,15 @@
       "locale": "tr",
       "paired_case_id": "NSL-A08",
       "answerable": true,
-      "answer": "Ödünç dizüstü bilgisayar, şarjör ve kılıf 14 Ağustos Cuma günü 17:30'da iade edilmelidir [2]. Ekip teslimi 14 Ağustos Çarşamba günü 17:00'ta olduğundan, dizüstü bilgisayarın iadesi 30 dakika sonra planlanmıştır [1]. Teslimi yapmadan önce izinli projeye ait belgeleri kopyalamalısınız [1]. Ödünç alındığından beri kampüs dışında çıkarılmamalıdır, özel izin durumunda ise bu izin yazılı olarak kaydedilmiş olmalıdır [2].",
+      "answer": "Ödünç dizüstü bilgisayarı, şarj cihazını ve kılıfı iade edin. [1][2]\nİade son tarihi 14 Ağustos Cuma günü saat 17:30'da. [1][2]\nBu son tarih, aynı gün saat 17:00'de ekip tesliminden 30 dakika sonradır. [1][2]",
       "expected_sources": [
         "06-equipment-guide.md"
       ],
       "retrieved_sources": [
         "01-program-handbook.md",
-        "03-travel-guide.md",
-        "06-equipment-guide.md"
+        "02-program-schedule.md",
+        "06-equipment-guide.md",
+        "08-contacts-directory.md"
       ],
       "cited_sources": [
         "06-equipment-guide.md"
@@ -867,13 +894,14 @@
       "protected_fact_grounded": true,
       "protected_fact_complete": true,
       "language_quality": true,
-      "snippet_token_recall": 0.5385,
-      "required_fact_recall": 0.6965,
+      "snippet_token_recall": 0.8462,
+      "required_fact_recall": 0.7009,
       "required_fact_complete": true,
+      "required_order_complete": null,
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 2629.62
+      "retrieval_ms": 3253.59
     },
     {
       "id": "NSL-TR-U01",
@@ -883,21 +911,13 @@
       "locale": "tr",
       "paired_case_id": "NSL-U01",
       "answerable": false,
-      "answer": "Kütüphanenizde bu soruyu yanıtlamak için yeterli kanıt bulamadım. [2]",
+      "answer": "Kütüphanenizde bu soruyu yanıtlamak için yeterli kanıt bulamadım.",
       "expected_sources": [],
-      "retrieved_sources": [
-        "01-program-handbook.md",
-        "02-program-schedule.md",
-        "03-travel-guide.md",
-        "06-equipment-guide.md",
-        "08-contacts-directory.md"
-      ],
-      "cited_sources": [
-        "02-program-schedule.md"
-      ],
+      "retrieved_sources": [],
+      "cited_sources": [],
       "hit": null,
       "source_recall": null,
-      "citation_precision": 0.0,
+      "citation_precision": null,
       "citation_correct": null,
       "citation_sentence_coverage": null,
       "protected_fact_grounded": null,
@@ -906,10 +926,11 @@
       "snippet_token_recall": 1.0,
       "required_fact_recall": null,
       "required_fact_complete": null,
+      "required_order_complete": null,
       "term_match": null,
-      "refusal_correct": false,
-      "passed": false,
-      "retrieval_ms": 2719.36
+      "refusal_correct": true,
+      "passed": true,
+      "retrieval_ms": 2697.21
     },
     {
       "id": "NSL-TR-U02",
@@ -934,10 +955,11 @@
       "snippet_token_recall": 1.0,
       "required_fact_recall": null,
       "required_fact_complete": null,
+      "required_order_complete": null,
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 4279.78
+      "retrieval_ms": 130.53
     },
     {
       "id": "NSL-TR-U03",
@@ -962,10 +984,11 @@
       "snippet_token_recall": 1.0,
       "required_fact_recall": null,
       "required_fact_complete": null,
+      "required_order_complete": null,
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 144.54
+      "retrieval_ms": 128.07
     },
     {
       "id": "NSL-TR-U04",
@@ -990,10 +1013,11 @@
       "snippet_token_recall": 1.0,
       "required_fact_recall": null,
       "required_fact_complete": null,
+      "required_order_complete": null,
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 117.92
+      "retrieval_ms": 122.31
     }
   ]
 }

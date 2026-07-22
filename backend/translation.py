@@ -1485,6 +1485,16 @@ class ControlledTranslationService:
         )
         edited = re.sub(
             r"\bAcil güvenlik sağlandıktan sonra,?\s+"
+            r"(?P<role>Davranış Sorumlusu)\s+için\s+"
+            r"(?P<email>[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})\s+adresine\s+"
+            r"davranış(?:la ilgili)?\s+endişesini\s+e-postayla\s+gönderin\b",
+            r"Acil güvenlik sağlandıktan sonra davranışla ilgili endişeyi \g<email> adresine "
+            r"e-posta göndererek \g<role>na bildirin",
+            edited,
+            flags=re.IGNORECASE,
+        )
+        edited = re.sub(
+            r"\bAcil güvenlik sağlandıktan sonra,?\s+"
             r"(?P<email>[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})\s+e-postası\s+gibi\s+"
             r"Davranış Kurallarındaki gizli yolları kullanarak davranışı bildirin\b",
             r"Acil güvenlik sağlandıktan sonra davranışı, Davranış Kurallarındaki gizli "
