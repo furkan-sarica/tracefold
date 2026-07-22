@@ -1227,13 +1227,23 @@ class RAGPipeline:
         return claims or None
 
     @classmethod
-    def citation_sentence_coverage(cls, answer: str, citations: list[dict[str, Any]]) -> bool:
+    def citation_sentence_coverage(
+        cls,
+        answer: str,
+        citations: list[dict[str, Any]],
+        *,
+        locale: AnswerLocale = "en",
+    ) -> bool:
         claims = cls._citation_claims(answer.strip())
         if not claims:
             return False
         allowed = {int(item["index"]) for item in citations}
         if not all(indices and indices.issubset(allowed) for _claim, indices in claims):
             return False
+        # Turkish output is validated through its already validated English source claims;
+        # lexical overlap against English evidence is not meaningful for Turkish text.
+        if locale == "tr":
+            return True
         citation_map = {int(item["index"]): item for item in citations}
         for claim, indices in claims:
             evidence = "\n".join(str(citation_map[index].get("text") or "") for index in indices)

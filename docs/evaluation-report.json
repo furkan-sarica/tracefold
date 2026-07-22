@@ -1,30 +1,30 @@
 {
-  "id": "eval_c9c32b6ba7f143298fb34d6b9e283155",
+  "id": "eval_00eaee2d74f74c0ba366f89b32a749d0",
   "dataset_id": "northstar-summer-lab-2026-bilingual-parity-v3",
   "status": "complete",
-  "created_at": "2026-07-22T10:54:30.083893+00:00",
-  "retrieval_p95_ms": 2420.37,
+  "created_at": "2026-07-22T11:18:01.457480+00:00",
+  "retrieval_p95_ms": 2833.96,
   "metrics": {
     "total_cases": 24,
     "answerable_cases": 16,
     "negative_cases": 8,
-    "passed_cases": 22,
+    "passed_cases": 16,
     "hit_at_k": 1.0,
     "source_recall_at_k": 1.0,
-    "citation_precision": 0.875,
-    "citation_accuracy": 0.875,
-    "citation_sentence_coverage": 1.0,
+    "citation_precision": 1.0,
+    "citation_accuracy": 1.0,
+    "citation_sentence_coverage": 0.5,
     "protected_fact_grounding_accuracy": 1.0,
-    "protected_fact_completeness": 0.875,
-    "snippet_token_recall": 0.7542,
-    "required_fact_recall": 0.6964,
+    "protected_fact_completeness": 1.0,
+    "snippet_token_recall": 0.8501,
+    "required_fact_recall": 0.7775,
     "required_order_accuracy": 1.0,
-    "required_fact_completeness": 0.875,
+    "required_fact_completeness": 0.9375,
     "custom_term_accuracy": null,
     "language_quality_accuracy": 1.0,
     "refusal_accuracy": 1.0,
-    "average_retrieval_ms": 934.33,
-    "retrieval_p95_ms": 2420.37,
+    "average_retrieval_ms": 1078.82,
+    "retrieval_p95_ms": 2833.96,
     "locales": [
       "en",
       "tr"
@@ -34,50 +34,50 @@
         "total_cases": 12,
         "answerable_cases": 8,
         "negative_cases": 4,
-        "passed_cases": 11,
+        "passed_cases": 12,
         "hit_at_k": 1.0,
         "source_recall_at_k": 1.0,
-        "citation_precision": 0.875,
-        "citation_accuracy": 0.875,
+        "citation_precision": 1.0,
+        "citation_accuracy": 1.0,
         "citation_sentence_coverage": 1.0,
         "protected_fact_grounding_accuracy": 1.0,
-        "protected_fact_completeness": 0.875,
-        "snippet_token_recall": 0.7786,
-        "required_fact_recall": 0.741,
+        "protected_fact_completeness": 1.0,
+        "snippet_token_recall": 0.8869,
+        "required_fact_recall": 0.8335,
         "required_order_accuracy": 1.0,
-        "required_fact_completeness": 0.875,
+        "required_fact_completeness": 1.0,
         "custom_term_accuracy": null,
         "language_quality_accuracy": 1.0,
         "refusal_accuracy": 1.0,
-        "average_retrieval_ms": 827.71,
-        "retrieval_p95_ms": 2149.04
+        "average_retrieval_ms": 877.9,
+        "retrieval_p95_ms": 1965.21
       },
       "tr": {
         "total_cases": 12,
         "answerable_cases": 8,
         "negative_cases": 4,
-        "passed_cases": 11,
+        "passed_cases": 4,
         "hit_at_k": 1.0,
         "source_recall_at_k": 1.0,
-        "citation_precision": 0.875,
-        "citation_accuracy": 0.875,
-        "citation_sentence_coverage": 1.0,
+        "citation_precision": 1.0,
+        "citation_accuracy": 1.0,
+        "citation_sentence_coverage": 0.0,
         "protected_fact_grounding_accuracy": 1.0,
-        "protected_fact_completeness": 0.875,
-        "snippet_token_recall": 0.7299,
-        "required_fact_recall": 0.6518,
+        "protected_fact_completeness": 1.0,
+        "snippet_token_recall": 0.8132,
+        "required_fact_recall": 0.7214,
         "required_order_accuracy": 1.0,
         "required_fact_completeness": 0.875,
         "custom_term_accuracy": null,
         "language_quality_accuracy": 1.0,
         "refusal_accuracy": 1.0,
-        "average_retrieval_ms": 1040.94,
-        "retrieval_p95_ms": 3636.76
+        "average_retrieval_ms": 1279.73,
+        "retrieval_p95_ms": 4027.43
       }
     },
     "bilingual_pairs_evaluated": 12,
-    "bilingual_pair_accuracy": 0.9167,
-    "model_warmup_ms": 55.68,
+    "bilingual_pair_accuracy": 0.3333,
+    "model_warmup_ms": 58.42,
     "top_k": 5,
     "retrieval_threshold": 0.6,
     "run_context": {
@@ -136,7 +136,7 @@
         "machine": "arm64"
       },
       "code_provenance": {
-        "revision": "f11fdbe9f6a6fd0e00d27c81aae69839fcfbccb5",
+        "revision": "04f8cf05db85fb9d8d7abd430847aebb24aeb99d",
         "dirty": false,
         "source": "git"
       },
@@ -209,7 +209,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 54.14
+      "retrieval_ms": 54.22
     },
     {
       "id": "NSL-A02",
@@ -249,7 +249,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 370.43
+      "retrieval_ms": 438.19
     },
     {
       "id": "NSL-A03",
@@ -259,7 +259,7 @@
       "locale": "en",
       "paired_case_id": null,
       "answerable": true,
-      "answer": "I couldn't find enough evidence in the indexed documents to answer that.",
+      "answer": "Your laptop must have 16 GB RAM and 60 GB free storage [1]. It needs Wi-Fi 5 or newer, a working browser, and either a USB-C or USB-A port [1]. You must also have permission to install software and local development tools [1].",
       "expected_sources": [
         "06-equipment-guide.md"
       ],
@@ -268,23 +268,25 @@
         "06-equipment-guide.md",
         "08-contacts-directory.md"
       ],
-      "cited_sources": [],
+      "cited_sources": [
+        "06-equipment-guide.md"
+      ],
       "hit": true,
       "source_recall": 1.0,
-      "citation_precision": 0.0,
-      "citation_correct": false,
-      "citation_sentence_coverage": null,
-      "protected_fact_grounded": null,
-      "protected_fact_complete": false,
+      "citation_precision": 1.0,
+      "citation_correct": true,
+      "citation_sentence_coverage": true,
+      "protected_fact_grounded": true,
+      "protected_fact_complete": true,
       "language_quality": true,
-      "snippet_token_recall": 0.0,
-      "required_fact_recall": 0.0,
-      "required_fact_complete": false,
+      "snippet_token_recall": 0.8667,
+      "required_fact_recall": 0.74,
+      "required_fact_complete": true,
       "required_order_complete": null,
       "term_match": null,
-      "refusal_correct": false,
-      "passed": false,
-      "retrieval_ms": 1038.06
+      "refusal_correct": true,
+      "passed": true,
+      "retrieval_ms": 1737.12
     },
     {
       "id": "NSL-A04",
@@ -324,7 +326,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 2005.35
+      "retrieval_ms": 1382.91
     },
     {
       "id": "NSL-A05",
@@ -363,7 +365,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 410.25
+      "retrieval_ms": 1965.21
     },
     {
       "id": "NSL-A06",
@@ -404,7 +406,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 1843.28
+      "retrieval_ms": 1736.64
     },
     {
       "id": "NSL-A07",
@@ -441,7 +443,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 2149.04
+      "retrieval_ms": 1441.92
     },
     {
       "id": "NSL-A08",
@@ -478,7 +480,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 1539.02
+      "retrieval_ms": 1240.15
     },
     {
       "id": "NSL-U01",
@@ -507,7 +509,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 268.27
+      "retrieval_ms": 270.17
     },
     {
       "id": "NSL-U02",
@@ -536,7 +538,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 66.89
+      "retrieval_ms": 78.44
     },
     {
       "id": "NSL-U03",
@@ -565,7 +567,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 56.25
+      "retrieval_ms": 55.02
     },
     {
       "id": "NSL-U04",
@@ -594,7 +596,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 131.53
+      "retrieval_ms": 134.81
     },
     {
       "id": "NSL-TR-A01",
@@ -620,7 +622,7 @@
       "source_recall": 1.0,
       "citation_precision": 1.0,
       "citation_correct": true,
-      "citation_sentence_coverage": true,
+      "citation_sentence_coverage": false,
       "protected_fact_grounded": true,
       "protected_fact_complete": true,
       "language_quality": true,
@@ -630,8 +632,8 @@
       "required_order_complete": null,
       "term_match": null,
       "refusal_correct": true,
-      "passed": true,
-      "retrieval_ms": 373.96
+      "passed": false,
+      "retrieval_ms": 347.59
     },
     {
       "id": "NSL-TR-A02",
@@ -660,7 +662,7 @@
       "source_recall": 1.0,
       "citation_precision": 1.0,
       "citation_correct": true,
-      "citation_sentence_coverage": true,
+      "citation_sentence_coverage": false,
       "protected_fact_grounded": true,
       "protected_fact_complete": true,
       "language_quality": true,
@@ -670,8 +672,8 @@
       "required_order_complete": null,
       "term_match": null,
       "refusal_correct": true,
-      "passed": true,
-      "retrieval_ms": 533.53
+      "passed": false,
+      "retrieval_ms": 778.54
     },
     {
       "id": "NSL-TR-A03",
@@ -681,7 +683,7 @@
       "locale": "tr",
       "paired_case_id": "NSL-A03",
       "answerable": true,
-      "answer": "Kütüphanenizde bu soruyu yanıtlamak için yeterli kanıt bulamadım.",
+      "answer": "Dizüstü bilgisayarınızda 16 GB RAM ve 60 GB boş depolama alanı olmalıdır. [1]\nDizüstü bilgisayarınız Wi-Fi 5 veya daha yenisini desteklemeli, çalışan bir tarayıcıya sahip olmalı ve bir USB-C veya USB-A portu içermelidir. [1]\nDizüstü bilgisayarınızda yazılım ve yerel geliştirme araçlarını yüklemek için izin almanız gerekir. [1]",
       "expected_sources": [
         "06-equipment-guide.md"
       ],
@@ -690,23 +692,25 @@
         "06-equipment-guide.md",
         "08-contacts-directory.md"
       ],
-      "cited_sources": [],
+      "cited_sources": [
+        "06-equipment-guide.md"
+      ],
       "hit": true,
       "source_recall": 1.0,
-      "citation_precision": 0.0,
-      "citation_correct": false,
-      "citation_sentence_coverage": null,
-      "protected_fact_grounded": null,
-      "protected_fact_complete": false,
+      "citation_precision": 1.0,
+      "citation_correct": true,
+      "citation_sentence_coverage": false,
+      "protected_fact_grounded": true,
+      "protected_fact_complete": true,
       "language_quality": true,
-      "snippet_token_recall": 0.0,
-      "required_fact_recall": 0.0,
+      "snippet_token_recall": 0.6667,
+      "required_fact_recall": 0.5571,
       "required_fact_complete": false,
       "required_order_complete": null,
       "term_match": null,
-      "refusal_correct": false,
+      "refusal_correct": true,
       "passed": false,
-      "retrieval_ms": 900.0
+      "retrieval_ms": 1088.72
     },
     {
       "id": "NSL-TR-A04",
@@ -735,7 +739,7 @@
       "source_recall": 1.0,
       "citation_precision": 1.0,
       "citation_correct": true,
-      "citation_sentence_coverage": true,
+      "citation_sentence_coverage": false,
       "protected_fact_grounded": true,
       "protected_fact_complete": true,
       "language_quality": true,
@@ -745,8 +749,8 @@
       "required_order_complete": null,
       "term_match": null,
       "refusal_correct": true,
-      "passed": true,
-      "retrieval_ms": 2420.37
+      "passed": false,
+      "retrieval_ms": 2294.42
     },
     {
       "id": "NSL-TR-A05",
@@ -774,7 +778,7 @@
       "source_recall": 1.0,
       "citation_precision": 1.0,
       "citation_correct": true,
-      "citation_sentence_coverage": true,
+      "citation_sentence_coverage": false,
       "protected_fact_grounded": true,
       "protected_fact_complete": true,
       "language_quality": true,
@@ -784,8 +788,8 @@
       "required_order_complete": null,
       "term_match": null,
       "refusal_correct": true,
-      "passed": true,
-      "retrieval_ms": 981.95
+      "passed": false,
+      "retrieval_ms": 725.54
     },
     {
       "id": "NSL-TR-A06",
@@ -815,7 +819,7 @@
       "source_recall": 1.0,
       "citation_precision": 1.0,
       "citation_correct": true,
-      "citation_sentence_coverage": true,
+      "citation_sentence_coverage": false,
       "protected_fact_grounded": true,
       "protected_fact_complete": true,
       "language_quality": true,
@@ -825,8 +829,8 @@
       "required_order_complete": true,
       "term_match": null,
       "refusal_correct": true,
-      "passed": true,
-      "retrieval_ms": 794.53
+      "passed": false,
+      "retrieval_ms": 2833.96
     },
     {
       "id": "NSL-TR-A07",
@@ -852,7 +856,7 @@
       "source_recall": 1.0,
       "citation_precision": 1.0,
       "citation_correct": true,
-      "citation_sentence_coverage": true,
+      "citation_sentence_coverage": false,
       "protected_fact_grounded": true,
       "protected_fact_complete": true,
       "language_quality": true,
@@ -862,8 +866,8 @@
       "required_order_complete": null,
       "term_match": null,
       "refusal_correct": true,
-      "passed": true,
-      "retrieval_ms": 3636.76
+      "passed": false,
+      "retrieval_ms": 2116.45
     },
     {
       "id": "NSL-TR-A08",
@@ -890,7 +894,7 @@
       "source_recall": 1.0,
       "citation_precision": 1.0,
       "citation_correct": true,
-      "citation_sentence_coverage": true,
+      "citation_sentence_coverage": false,
       "protected_fact_grounded": true,
       "protected_fact_complete": true,
       "language_quality": true,
@@ -900,8 +904,8 @@
       "required_order_complete": null,
       "term_match": null,
       "refusal_correct": true,
-      "passed": true,
-      "retrieval_ms": 1399.78
+      "passed": false,
+      "retrieval_ms": 4027.43
     },
     {
       "id": "NSL-TR-U01",
@@ -930,7 +934,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 1104.1
+      "retrieval_ms": 775.88
     },
     {
       "id": "NSL-TR-U02",
@@ -959,7 +963,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 115.76
+      "retrieval_ms": 126.39
     },
     {
       "id": "NSL-TR-U03",
@@ -988,7 +992,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 117.75
+      "retrieval_ms": 121.55
     },
     {
       "id": "NSL-TR-U04",
@@ -1017,7 +1021,7 @@
       "term_match": null,
       "refusal_correct": true,
       "passed": true,
-      "retrieval_ms": 112.82
+      "retrieval_ms": 120.32
     }
   ]
 }

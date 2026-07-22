@@ -337,7 +337,9 @@ class Evaluator:
             )
             citation_valid = bool(cited_sources) and not response["refused"] if answerable else None
             citation_sentence_coverage = (
-                self.rag.citation_sentence_coverage(response["answer"], response["citations"])
+                self.rag.citation_sentence_coverage(
+                    response["answer"], response["citations"], locale=case["locale"]
+                )
                 if answerable and not response["refused"]
                 else None
             )

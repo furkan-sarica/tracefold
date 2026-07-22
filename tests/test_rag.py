@@ -1047,7 +1047,7 @@ def test_evaluator_requires_full_source_recall_and_citation_precision():
             return self.response
 
         @staticmethod
-        def citation_sentence_coverage(answer, citations):
+        def citation_sentence_coverage(answer, citations, *, locale="en"):
             return True
 
         @staticmethod
