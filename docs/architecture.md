@@ -12,7 +12,7 @@ flowchart LR
     RAG["RAG policy\ncosine top-k + safe refusal"]
     DB[("SQLite\ntext · metadata · Float32 vectors")]
     EMB["Foundry Local\nqwen3-embedding-0.6b"]
-    CHAT["Foundry Local\nqwen2.5-7b"]
+    CHAT["Foundry Local\nqwen2.5-14b"]
     NMT["Local OPUS-MT\nTR→EN · EN→TR"]
     CTRL["Bilingual controls\nsentinels · glossary · gates"]
     EVAL["24-case bilingual parity evaluator"]
@@ -44,7 +44,7 @@ The runtime adapter owns all SDK-specific behavior:
 - loads both configured models before inference and uses deterministic chat settings;
 - raises an actionable `503` when the real local runtime is unavailable.
 
-Release aliases are `qwen3-embedding-0.6b` for retrieval and `qwen2.5-7b` for grounded claim generation. Their resolved Foundry variant IDs, device, and execution provider belong to the run; they are visible in **Setup** and recorded in `docs/evaluation-report.json`.
+Release aliases are `qwen3-embedding-0.6b` for retrieval and `qwen2.5-14b` for grounded claim generation. Their resolved Foundry variant IDs, device, and execution provider belong to the run; they are visible in **Setup** and recorded in `docs/evaluation-report.json`.
 
 `TRACEFOLD_RUNTIME=fake` is an explicit deterministic test adapter. It is never selected automatically by the user-facing application.
 
@@ -57,15 +57,15 @@ Tracefold uses two dedicated Helsinki-NLP OPUS-MT checkpoints outside the Foundr
 
 The models are downloaded during explicit setup and run on the host. Query text is not sent to Hugging Face or another hosted inference service. The checkpoints are CC BY 4.0; attribution and upstream links are in [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md).
 
-Translation is a controlled stage, not an instruction given to `qwen2.5-7b`:
+Translation is a controlled stage, not an instruction given to `qwen2.5-14b`:
 
 1. mask dates, times, numbers, phone numbers, email addresses, and glossary-controlled terms with typed sentinels;
 2. apply the checked-in, extensible Northstar glossary around translation so approved product/corpus terms remain stable;
 3. translate the Turkish question to English with the TR→EN model, restore protected values, and reject missing, duplicated, or altered sentinels;
-4. retain the original Turkish query alongside the accepted English translation, retrieve source evidence with `qwen3-embedding-0.6b`, then have `qwen2.5-7b` produce concise English claims with evidence IDs;
+4. retain the original Turkish query alongside the accepted English translation, retrieve source evidence with `qwen3-embedding-0.6b`, then have `qwen2.5-14b` produce concise English claims with evidence IDs;
 5. validate the English claims and citations before any answer translation;
 6. detach and map citation IDs, protect critical values again, translate only the validated claim text with the EN→TR model, then reconstruct citations on the corresponding Turkish sentence or list item;
-7. reverse-translate the Turkish output, compare its protected facts and claims with the validated English intermediate, and apply Turkish-language quality gates;
+7. reverse-translate the Turkish output, require at least `0.60` recall for unprotected content plus the `0.30` overall content-sanity floor, compare predicates, modality, and explicit order with the validated English intermediate, and apply Turkish-language quality gates;
 8. emit the Turkish answer only if every required gate passes; otherwise return the exact Turkish safe refusal.
 
 The glossary is intentionally narrow and reviewable. It covers Tracefold product language and terminology needed by the synthetic Northstar release corpus, and its format can accept additional domain entries. It is not a universal terminology database. The OPUS-MT checkpoints have broader translation capability, but the release claim is limited to the checked-in corpus and the 24-case parity evaluation; a different corpus needs glossary review and its own bilingual tests.
@@ -107,7 +107,7 @@ sequenceDiagram
     participant TR_EN as OPUS-MT TR to EN
     participant EMB as qwen3 embedding
     participant DB as SQLite
-    participant LLM as qwen2.5 chat
+    participant LLM as qwen2.5 14B chat
     participant EN_TR as OPUS-MT EN to TR
     participant GATE as Bilingual validation
 
@@ -127,7 +127,7 @@ sequenceDiagram
     API->>API: cosine score + stable sort + source cap
     alt top score >= 0.60
         API->>API: retain evidence >= 0.30
-        API->>API: select query-focused source excerpts
+        API->>API: select up to 4 focused excerpts / 3200 chars
         API->>LLM: English query + numbered evidence
         LLM-->>API: candidate English claims + evidence IDs
         API->>GATE: validate claims, citations, protected facts
@@ -149,11 +149,13 @@ sequenceDiagram
 
 Retrieval ranks all stored chunks with `qwen3-embedding-0.6b` cosine similarity and a stable filename/ordinal/ID tie-break. A configurable cap (release value: two) prevents one long document from filling the entire top-k while still allowing complementary passages from the same source. English questions use one query vector. After the sentinel checks pass, Turkish retrieval keeps the original multilingual query and adds the controlled TR→EN translation; each chunk receives the best score across those variants. A lossy/rejected translation fails closed with the deterministic Turkish safe refusal rather than asking the chat model to translate or silently changing paths. Missing translation assets produce a visible setup/runtime error.
 
-The release configuration uses a `0.60` pre-generation threshold and a `0.30` evidence floor after section-isolated chunking. Once the gate passes, passages at or above the evidence floor may be supplied to the chat model. The accepted real-model report is the authority for whether that calibration separates answerable and unanswerable cases; model, corpus, chunking, or retrieval changes require a fresh evaluation rather than assuming the threshold still holds.
+The release configuration uses a `0.60` pre-generation threshold and a `0.30` evidence floor after section-isolated chunking. Once the gate passes, passages at or above the evidence floor may be supplied to the chat model. Generation receives at most four of those passages, with question-focused excerpts constrained to a combined `3200` characters. The accepted real-model report is the authority for whether that calibration separates answerable and unanswerable cases; model, corpus, chunking, context budget, or retrieval changes require a fresh evaluation rather than assuming the threshold still holds.
 
-To stay within a reliable local-model context budget, Tracefold selects a question-focused excerpt from each retrieved chunk. The `qwen2.5-7b` prompt treats documents as untrusted data, requests complete multi-step procedures, limits filler, and requires numbered evidence IDs on English claims. Unknown, missing, or out-of-range citations trigger one constrained grounded repair; a second failure becomes the locale-specific deterministic refusal.
+To stay within that reliable local-model context budget, Tracefold selects a question-focused excerpt from each retained chunk. The `qwen2.5-14b` prompt treats documents as untrusted data, requests complete multi-step procedures, preserves requested order and location qualifiers, limits filler, and requires numbered evidence IDs on English claims. If the first English answer fails grounding or citation validation, the same evidence can receive one constrained repair request. The repaired answer must pass every original gate; there is no repair loop and no application-side citation attachment.
 
-Validation is layered around generation and translation. Every English factual sentence or list item must end with one or more valid evidence IDs, and protected values such as dates, times, numbers, phone numbers, and email addresses must appear in cited evidence. For Turkish, citations are reconstructed from the validated English sentence map rather than generated or translated as free text. Exact sentinel restoration, reverse-translation equivalence, protected-fact grounding, and Turkish-language quality must all pass. Failure at any required layer produces the locale-specific safe refusal instead of an unchecked response.
+Validation is layered around generation and translation. Every English factual sentence or list item must end with its own valid evidence-ID group; one citation group after a multi-sentence paragraph cannot cover the preceding sentences. Protected values such as dates, times, numbers, phone numbers, email addresses, month names, and weekdays must match the cited evidence. Evaluation cases can also declare explicit before/after relations, which are checked by position instead of bag-of-words overlap.
+
+For Turkish, citations are reconstructed from the validated English sentence map rather than generated or translated as free text. Typed-sentinel restoration, normalized calendar facts, protected-fact grounding, and semantic signatures for predicates, modality, contact roles, and order must remain exact. Reverse translation must retain at least `0.60` of unprotected content and clear the `0.30` overall content-sanity floor. If a grounded English answer fails only during the translation-aware checks, the model receives one bounded opportunity to restate the requested facts as atomic English claims; that restatement must pass grounding again and then the complete translation gate. Any subsequent failure produces the exact locale-specific safe refusal rather than weakening a threshold or emitting a partially checked answer.
 
 For safety, the SSE endpoint emits answer tokens only after the complete answer passes citation validation. It is a validated event stream, not raw model-token passthrough.
 
@@ -167,7 +169,7 @@ Each run records:
 - platform, retrieval, translation, sentinel, and glossary configuration;
 - document/chunk counts;
 - Hit@5, source recall, citation validity/source precision, and sentence-level citation coverage;
-- protected-fact grounding, required-fact recall, snippet token recall, reverse-translation equivalence, and Turkish language-quality checks;
+- protected-fact grounding and completeness, required-fact recall, explicit order accuracy, snippet token recall, reverse-translation equivalence, and Turkish language-quality checks; declared month and weekday facts contribute through the protected translation and required-fact gates;
 - negative refusal accuracy, per-locale breakdowns, and bilingual paired-case accuracy;
 - warm retrieval timing and separate model warm-up cost.
 

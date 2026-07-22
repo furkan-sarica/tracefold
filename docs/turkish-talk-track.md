@@ -1,61 +1,57 @@
 # Tracefold — 5 Dakikalık Türkçe Sunum Metni
 
-Bu metin altı İngilizce slaytla uyumludur. Hedef süre yaklaşık beş dakikadır. Köşeli parantez içindeki ifadeler sahne yönlendirmesidir; sesli okunmaz.
+Bu metin altı slaytlık Türkçe sunumla uyumludur. Hedef süre yaklaşık beş dakikadır. Köşeli parantez içindeki ifadeler sahne yönlendirmesidir; sesli okunmaz. Değerlendirme slaydındaki sonuçları yalnızca son gerçek model raporu ilgili sürümün Git commit kimliğini kaydediyor ve çalışma ağacının temiz olduğunu doğruluyorsa başarı olarak anlatın.
 
-## Slide 1 — Tracefold: Answers You Can Trace — 0:00–0:40
+## Slayt 1 — Kaynağını izleyebildiğiniz yanıtlar. — 0:00–0:40
 
-Merhaba, bugün size Tracefold'u göstereceğim. Tracefold, belgeler cihazdan ayrılmadan İngilizce ve Türkçe soruları yanıtlayan, her olgusal cümleyi açılabilir bir kanıtla ilişkilendiren yerel bir RAG uygulaması.
+Merhaba, bugün size Tracefold'u göstereceğim. Tracefold, özel belgelerden İngilizce ve Türkçe yanıtlar üreten yerel bir RAG uygulaması. Temel vaadi basit: Kaynağını izleyebildiğiniz yanıtlar.
 
-Çözmek istediğim sorun şu: Bir sohbet modeli son derece akıcı bir yanıt verebilir; peki bu yanıtın gerçekten belgelere dayandığını nasıl anlayacağız? Tracefold yalnızca güzel bir yanıt üretmiyor. Yanıtın hangi belgeye, hangi bölüme ve hangi metin parçasına dayandığını görünür kılıyor. Sloganımız da bu nedenle “Answers you can trace”, yani “kaynağını izleyebileceğiniz yanıtlar”.
+Akıcı bir yanıt tek başına güvenilir değildir. Bir belge asistanı, kullanıcının “Bu bilgi nereden geldi?” sorusuna dosyayı, bölümü ve ilgili metin parçasını göstererek yanıt verebilmelidir. Tracefold bu nedenle yalnızca metin üretmez; yanıtla kanıt arasındaki bağı ürün deneyiminin merkezine yerleştirir.
 
-## Slide 2 — The Problem: Private Documents, Unverifiable Answers — 0:40–1:20
+## Slayt 2 — Özel belgeler doğrulanabilir yanıtları hak eder — 0:40–1:20
 
-Belge asistanlarında üç temel risk var. Birincisi gizlilik: Belgeler ve sorular uzaktaki bir hizmete gönderilebilir. İkincisi halüsinasyon: Model, kaynakta bulunmayan bir bilgiyi ikna edici biçimde uydurabilir. Üçüncüsü denetlenebilirlik: Kullanıcı, yanıtın dayanağını kolayca göremeyebilir.
+Belge asistanlarında üç risk aynı anda ortaya çıkar. Belgeler uzaktaki bir hizmete gönderildiğinde gizlilik zayıflar. Model kaynakta olmayan bir ayrıntıyı ikna edici biçimde eklediğinde doğruluk zayıflar. Kullanıcı dayanağı açamadığında da denetlenebilirlik kaybolur.
 
-Tracefold bu üç riski birlikte ele alıyor. Bilgi getirme için `qwen3-embedding-0.6b`, kanıta dayalı İngilizce iddialar için `qwen2.5-7b` Microsoft Foundry Local aracılığıyla bu cihazda çalışıyor. Türkçe ile İngilizce arasındaki kontrollü çeviriyi ise iki ayrı OPUS-MT modeli, yine yerel çalışma ortamında yapıyor. Yeterli kanıt bulunamadığında modeli yanıt vermeye zorlamak yerine güvenli ret uyguluyor. Kanıt bulunduğunda ise atfa tıklayıp kullanılan metin parçasını doğrudan inceleyebiliyoruz.
+Tracefold bu üç alanı birlikte ele alıyor. `qwen3-embedding-0.6b` arama için gereken gömme vektörlerini, `qwen2.5-14b` ise kanıta dayalı İngilizce iddiaları Microsoft Foundry Local üzerinden bu cihazda üretiyor. Türkçe ile İngilizce arasındaki kontrollü geçişi iki yerel OPUS-MT modeli sağlıyor. Yeterli kanıt yoksa sistem modeli tahmine zorlamıyor; açık ve sabit bir güvenli ret yanıtı veriyor.
 
-## Slide 3 — Local RAG Architecture — 1:20–2:15
+## Slayt 3 — Yanıt yerelde kalır; kanıt yanıttan kopmaz — 1:20–2:15
 
-[Mimari diyagramını göster.]
+[Mimari akışı göster.]
 
-FastAPI belgeleri ayrıştırıyor; başlık ve sayfa bilgisini koruyarak metni yaklaşık 240 token içeren, bölüm sınırlarını aşmayan parçalara ayırıyor. Metinler, üst veriler ve `qwen3-embedding-0.6b` vektörleri SQLite'ta saklanıyor.
+FastAPI belgeleri ayrıştırıyor; başlık ve sayfa bilgisini koruyarak bölüm sınırlarını aşmayan parçalara ayırıyor. Metinler, meta veriler ve Float32 vektörler SQLite'ta yerel olarak saklanıyor.
 
-İngilizce soru doğrudan bilgi getirmeye giriyor. Türkçe soruda tarih, saat, telefon ve e-posta gibi değerler koruma belirteçleriyle maskeleniyor; Northstar sözlüğü terimleri sabitliyor ve `opus-mt-tc-big-tr-en` soruyu İngilizceye çeviriyor. Bilgi getirme, özgün Türkçe soru ile denetimden geçen İngilizce çeviriyi birlikte kullanıyor. Bir belirteç değişir veya anlam denetimi başarısız olursa sistem güvenli ret veriyor.
+Soru için kosinüs benzerliği hesaplanıyor. En yüksek puan `0.60` eşiğinin altındaysa yanıt üretimi başlamıyor. Eşik geçilirse `0.30` ve üzerindeki kanıtlar arasından soruya odaklanan en fazla dört parça seçiliyor; bu parçalardan alınan metin toplam `3200` karakterlik bütçeyle sınırlanıyor.
 
-Kosinüs benzerliğiyle en yakın beş metin parçası bulunuyor. Kanıt yeterliyse `qwen2.5-7b` İngilizce iddialar üretiyor. İddialar ve atıflar doğrulandıktan sonra `opus-mt-tc-big-en-tr` yalnızca iddia metnini çeviriyor; atıflar cümle eşlemesinden yeniden kuruluyor. Ters çeviri, kritik olgu ve dil kontrolleri geçilmeden Türkçe yanıt gösterilmiyor. Bütün akış cihazda kalıyor.
+Türkçe sorularda tarih, saat, sayı, telefon, e-posta, ay ve gün adı gibi değerler türlerine göre etiketlenmiş koruma belirteçleriyle maskeleniyor. Soru İngilizceye çevrildikten sonra bu değerlerin eksiksiz geri gelmesi gerekiyor. `qwen2.5-14b` yalnızca kanıttan İngilizce iddialar kuruyor ve her olgusal cümle kendi atfıyla bitiyor. Atıfsız cümle, geçersiz kaynak numarası ya da kanıtta bulunmayan kritik değer yanıtı geçersiz kılıyor.
 
-## Slide 4 — Product Demo: From Documents to Evidence — 2:15–3:15
+Doğrulanmış iddialar Türkçeye çevrildiğinde atıflar çeviri modeline bırakılmıyor; cümle eşlemesinden yeniden kuruluyor. Ters çeviride koruma belirteçleri dışında kalan içeriğin en az yüzde 60'ı, genel içeriğin ise en az yüzde 30'u geri kazanılmalı. Tarih ve gün bilgisi, zorunluluk veya izin anlamı, kimin aranacağı ve işlemlerin sırası da ayrı kapılardan geçiyor. İlk İngilizce çıktı doğrulamayı geçmezse en fazla bir kanıta dayalı onarım yapılıyor. Türkçe çeviri kapısı reddederse ayrıca en fazla bir cümle bazlı yeniden yazım deneniyor. Bütün denetimler yeniden geçilmezse güvenli ret veriliyor.
 
-[Library ekranını, ardından Ask ekranını göster.]
+## Slayt 4 — Kanıt açıldığında yararlı bir yanıt güvenilir hâle gelir — 2:15–3:15
 
-Demo için Northstar Summer Lab adlı kurmaca bir programa ait, birbirini tamamlayan sekiz belge hazırladım.
+[Türkçe Kütüphane ekranını, ardından Türkçe Sor ekranını göster.]
 
-Önce İngilizce olarak, varış günü saat yirmiden sonra kampüse ulaşacağımı, bu durumda ne yapıp kiminle iletişime geçmem gerektiğini soruyorum. Değerlendirme, ilk beş sonuçta seyahat, konaklama ve iletişim kaynaklarını arıyor. Yanıtta ise yalnızca kullanılan kanıtlara atıf veriliyor.
+Demo, Northstar Summer Lab adlı kurmaca bir programa ait birbirini tamamlayan sekiz belgeyi kullanıyor. Şu soruyu soruyorum: “Varış günü kampüse saat 20:00'den sonra ulaşacağım. Ne yapmalıyım ve kiminle iletişime geçmeliyim?”
 
-[Atıf panelini aç.]
+[Yanıt tamamlanınca bir atfı aç.]
 
-Tracefold, Yurt Nöbet Telefonu numarasının saat on dokuz otuzdan önce aranması ve Program Ofisine yeni varış saatinin bildirilmesi gerektiğini söylüyor. Her atfın dosyasını, metin parçasını ve benzerlik puanını burada görebiliyorum.
+Tracefold yalnızca sorulan işlemleri sıralıyor: Yurt Nöbet Telefonu’nun ne zaman aranacağını ve Program Ofisi’ne hangi bilginin iletileceğini söylüyor. `19:30`, telefon numarası ve e-posta adresi kaynaktaki biçimiyle korunuyor. Atfı açtığımda dosya adını, ilgili bölümü, kullanılan metin parçasını ve benzerlik puanını görebiliyorum.
 
-[Arayüz dilini Türkçeye çevir ve eşdeğer soruyu sor.]
+Buradaki önemli ayrım şu: Atıf, yanıt üretildikten sonra süs olarak eklenmiyor. Her cümle kendi kaynak numarasıyla doğrulanıyor; Türkçe yanıtın atıfları da doğrulanmış İngilizce iddia haritasından yeniden kuruluyor. Böylece kullanıcı hem sonucu okuyabiliyor hem de dayanağını doğrudan denetleyebiliyor.
 
-Aynı soruyu Türkçe sorduğumda saat, telefon ve e-posta aynen korunuyor. Atıflar çeviri modeline yazdırılmıyor; doğrulanan İngilizce cümlelerle olan eşlemeden yeniden kuruluyor. Türkçe burada yalnızca arayüz değil; soru, bilgi getirme, yanıt, atıf ve güvenli ret akışlarının tamamını kapsıyor.
+## Slayt 5 — Güven varsayılmaz, ölçülür — 3:15–4:15
 
-## Slide 5 — Quality: Retrieval, Citations, and Refusal — 3:15–4:15
+Kaliteyi “yanıt kulağa doğru geliyor” diyerek değerlendirmiyoruz. Veri kümesinde on iki İngilizce senaryonun her biri Türkçe eşdeğeriyle eşleştiriliyor; toplam yirmi dört vaka var. Her dilde sekiz vaka yanıt üretimini, dört vaka ise güvenli reti sınamak üzere tasarlandı. Bu sayılar bir başarı beyanı değil, test kapsamının yapısıdır.
 
-Kaliteyi yalnızca “yanıt iyi görünüyor” diyerek değerlendirmiyoruz. On iki İngilizce senaryonun her biriyle Türkçe eşdeğeri bire bir eşleşiyor: toplam yirmi dört senaryo. Her dilde sekiz soru yanıtlanabilir; dört soru güvenli ret gerektiriyor.
+[Kalite ekranında ölçülen sonuçlarla kabul hedeflerini ayrı ayrı göster.]
 
-Bilgi getirme, kaynak kapsamı, atıf geçerliliği, kritik olgular ve güvenli ret doğruluğunu ölçüyoruz. Türkçede bunlara belirteçlerin dönmesi, atıfların kurulması, ters çeviri tutarlılığı ve dil kalitesi ekleniyor. Sonuçları dil bazında ve on iki eşleştirilmiş senaryo üzerinden izliyoruz.
+Bilgi getirmede beklenen kaynakların bulunup bulunmadığını; yanıtta her cümlenin geçerli ve doğru kanıta bağlanmasını; tarih, saat, telefon ve e-posta gibi korunan olguların kaynaktan sapmamasını ölçüyoruz. Çok adımlı işlemlerde önce-sonra ilişkisi ayrıca sınanıyor. Türkçede bunlara koruma belirteçlerinin eksiksiz dönmesi, takvim bilgilerinin korunması, atıfların yeniden kurulması, ters çeviri tutarlılığı ve dil kalitesi ekleniyor.
 
-[Quality ekranında hedefler ile ölçülmüş sonuçların ayrımını göster.]
+Slayttaki ölçümleri ancak rapor dört modelin kimliğini, tüm eşikleri, değerlendirilen Git commit kimliğini ve temiz çalışma ağacını birlikte kaydediyorsa sürüm kanıtı olarak kabul ediyoruz. Tam başarı ifadesini de yalnızca rapordaki yirmi dört vakanın tamamı geçtiğinde kullanıyoruz. Belgelerde bulunmayan burs tutarı sorulduğunda sistemin rakam uydurmak yerine Türkçe güvenli ret yanıtı vermesi bu kalite anlayışının bir parçası.
 
-Hedefleri ölçülmüş sonuç gibi sunmuyoruz. Bir çalışmayı ancak veri kümesi ve dört modelin kimliği, bilgi getirme ve çeviri ayarları, Git commit kimliği ve temiz çalışma ağacıyla birlikte kaydedildiyse kabul ediyoruz. Ekrandaki sayılar son kabul edilen `docs/evaluation-report.json` dosyasından geliyor.
+## Slayt 6 — Tasarımı gereği yerel. Varsayılan olarak doğrulanabilir. — 4:15–5:00
 
-Burs tutarı gibi belgelerde bulunmayan bir bilgi sorulduğunda Tracefold rakam uydurmuyor; Türkçe olarak “Kütüphanenizde bu soruyu yanıtlamak için yeterli kanıt bulamadım” diyor.
+Tracefold; belgeleri içe aktarma, yerel vektörleştirme, SQLite'ta saklama, kanıta erişim, kaynağa dayalı yanıt, kontrollü çeviri, güvenli ret ve iki dilli değerlendirmeyi tek bir çevrimdışı ürün deneyiminde birleştiriyor.
 
-## Slide 6 — Why Tracefold — 4:15–5:00
+Kullanıcı atfın arkasındaki metni inceleyebiliyor. Eksik model veya başarısız denetim, gizli bir yedek yanıt yoluyla maskelenmiyor. Onarım denemeleri sınırlı; eşikler başarısız bir yanıtı geçirmek için gevşetilmiyor. Sonuçlar, hedefler ve bilinen sınırlar birbirinden ayrı sunuluyor.
 
-Tracefold; belge alma, yerel vektörleştirme, SQLite'ta saklama, bilgi getirme, kaynağa dayalı yanıt, kontrollü çeviri, güvenli ret ve iki dilli değerlendirmeyi tek bir çevrimdışı ürün deneyiminde birleştiriyor.
-
-Kullanıcı atfın arkasındaki kanıtı inceleyebiliyor; model sorunu gizli bir yedek akışla maskelenmiyor; hedefler, sonuçlar ve sınırlamalar ayrı tutuluyor.
-
-Tracefold, kaynağı görülebilen ve bilmediği yerde durabilen bir yanıt katmanı. Northstar sözlüğü genişletilebilir; ancak bugünkü iki dilli kalite iddiası bu kurmaca belge kümesinin yirmi dört senaryolu değerlendirmesine dayanıyor. Yeni bir alanda terimler gözden geçirilmeli ve değerlendirme yeniden çalıştırılmalı. Teşekkür ederim.
+Bugünkü iki dilli kalite iddiasının sınırı da açık: Northstar sözlüğü genişletilebilir, ancak başka bir alana geçildiğinde terimler yeniden gözden geçirilmeli ve gerçek model değerlendirmesi yeni belge kümesi üzerinde tekrar çalıştırılmalı. Tracefold'un özeti şu: Belgeler yerelde kalır, her iddia kanıtını taşır ve sistem bilmediği yerde durur. Teşekkür ederim.

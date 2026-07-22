@@ -21,7 +21,7 @@ from storage import TracefoldStore, decode_embedding, encode_embedding
 from translation import (
     BaseTranslationEngine,
     ControlledTranslationService,
-    FakeTranslationEngine,
+    TranslationRejected,
 )
 
 from scripts.seed_demo import require_complete_evaluation
@@ -152,6 +152,23 @@ def test_unknown_or_missing_model_citations_are_rejected():
     assert accepted == "A grounded claim [1]."
     assert used == citations
 
+    unrelated = "The moon is made of cheese [1]."
+    assert RAGPipeline.validate_generated_answer(unrelated, citations) == (REFUSAL, [])
+
+
+def test_model_answer_normalization_keeps_plain_text_and_readable_citations():
+    assert (
+        RAGPipeline._normalize_model_answer("Call **+90 312 555 0155** now.[1][2]")
+        == "Call +90 312 555 0155 now. [1] [2]"
+    )
+    assert (
+        RAGPipeline._normalize_model_answer(
+            "<think>Draft reasoning that must stay private.</think> Check out by 10:00 [1]."
+        )
+        == "Check out by 10:00 [1]."
+    )
+    assert RAGPipeline._normalize_model_answer("<think>unfinished private reasoning") == ""
+
 
 def test_every_factual_sentence_requires_its_own_valid_citation():
     citations = [
@@ -166,6 +183,250 @@ def test_every_factual_sentence_requires_its_own_valid_citation():
     uncited_sentence = "Check out by 10:00. Store luggage until 12:15 [2]."
     assert RAGPipeline.validate_generated_answer(uncited_sentence, citations) == (REFUSAL, [])
     assert RAGPipeline.citation_sentence_coverage(uncited_sentence, citations) is False
+
+    shared_citation = "Check out by 10:00. Store luggage until 12:15 [1][2]."
+    assert RAGPipeline.validate_generated_answer(shared_citation, citations) == (REFUSAL, [])
+    assert RAGPipeline.citation_sentence_coverage(shared_citation, citations) is False
+
+    hallucinated_shared_citation = "The moon is made of cheese. Check out by 10:00 [1]."
+    assert RAGPipeline.validate_generated_answer(hallucinated_shared_citation, citations) == (
+        REFUSAL,
+        [],
+    )
+
+
+def test_generated_answer_rejects_more_than_four_claims():
+    citations = [{"index": 1, "filename": "guide.md", "text": "One. Two. Three. Four. Five."}]
+
+    answer = "One. [1]\nTwo. [1]\nThree. [1]\nFour. [1]\nFive. [1]"
+
+    assert RAGPipeline.validate_generated_answer(answer, citations) == (REFUSAL, [])
+
+
+def test_narrow_question_scope_limits_adjacent_claims():
+    assert RAGPipeline._scope_claim_limit("When is the drill and where should we assemble?") == 1
+    assert (
+        RAGPipeline._scope_claim_limit("How do checkout and luggage storage work for the shuttle?")
+        == 2
+    )
+    assert RAGPipeline._scope_claim_limit("What must I return and by when?") is None
+    assert (
+        RAGPipeline._scope_claim_limit(
+            "What should I return with the loan laptop and how does its deadline relate to the "
+            "team handoff?"
+        )
+        == 1
+    )
+
+
+def test_single_claim_scope_repair_demands_one_cited_sentence(tmp_path):
+    class NarrowRuntime(FakeRuntime):
+        def __init__(self):
+            super().__init__()
+            self.calls = 0
+
+        def generate(self, messages):
+            self.calls += 1
+            if self.calls == 1:
+                return "The drill is Tuesday at 11:30 [1]. People assemble at North Lawn [1]."
+            assert "EXACTLY ONE short sentence" in messages[-1]["content"]
+            assert "do not use a period" in messages[-1]["content"]
+            assert "EVERY evidence number" in messages[-1]["content"]
+            assert "[1][2]" in messages[-1]["content"]
+            return "The drill is Tuesday at 11:30, and people assemble at North Lawn [1][2]."
+
+    schedule_evidence = "The drill is Tuesday at 11:30."
+    location_evidence = "People assemble at North Lawn."
+    schedule_result = RetrievalResult(
+        chunk={
+            "filename": "safety.md",
+            "text": schedule_evidence,
+            "page_start": None,
+            "section": "Drill",
+        },
+        score=0.9,
+    )
+    location_result = RetrievalResult(
+        chunk={
+            "filename": "safety.md",
+            "text": location_evidence,
+            "page_start": None,
+            "section": "Assembly",
+        },
+        score=0.8,
+    )
+    citations = [
+        {"index": 1, "filename": "safety.md", "text": schedule_evidence},
+        {"index": 2, "filename": "safety.md", "text": location_evidence},
+    ]
+    runtime = NarrowRuntime()
+    pipeline = RAGPipeline(TracefoldStore(tmp_path / "tracefold.db"), runtime)
+
+    answer, used = pipeline._generate_validated(
+        "When is the drill and where should people assemble?",
+        [schedule_result, location_result],
+        citations,
+    )
+
+    assert runtime.calls == 2
+    assert answer == "The drill is Tuesday at 11:30, and people assemble at North Lawn [1] [2]."
+    assert used == citations
+
+
+def test_single_scope_can_preserve_one_model_supplied_trailing_citation() -> None:
+    answer = "The drill is Tuesday at 11:30. People assemble at North Lawn [1][2]."
+
+    assert RAGPipeline._merge_trailing_citation_sentences(answer) == (
+        "The drill is Tuesday at 11:30; People assemble at North Lawn [1] [2]."
+    )
+
+
+def test_narrow_scope_requires_one_supporting_citation_per_question_facet() -> None:
+    citations = [
+        {"index": 1, "text": "The evacuation drill is Tuesday at 11:30."},
+        {"index": 2, "text": "The Orion Building assembly point is North Lawn."},
+        {"index": 3, "text": "Unrelated medical support."},
+    ]
+
+    assert RAGPipeline._required_scope_citation_indices(
+        "When is the evacuation drill and where should Orion Building occupants assemble?",
+        citations,
+    ) == {1, 2}
+    assert (
+        RAGPipeline._merge_trailing_citation_sentences(
+            "The drill is Tuesday. People assemble at North Lawn [2]."
+        )
+        == "The drill is Tuesday. People assemble at North Lawn [2]."
+    )
+    assert (
+        RAGPipeline._merge_trailing_citation_sentences(
+            "The drill is Tuesday [1]. People assemble at North Lawn [2]."
+        )
+        == "The drill is Tuesday [1]. People assemble at North Lawn [2]."
+    )
+
+
+def test_device_specification_completeness_requires_every_evidence_category():
+    question = "What specifications should my laptop have?"
+    citations = [
+        {
+            "index": 1,
+            "filename": "equipment.md",
+            "text": (
+                "The laptop needs 16 GB RAM, 60 GB free storage, Wi-Fi 5 or newer, "
+                "a working browser, a USB-C or USB-A port, and permission to install "
+                "software and local development tools."
+            ),
+        }
+    ]
+
+    incomplete = "The laptop needs 16 GB RAM, 60 GB free storage, and Wi-Fi 5 [1]."
+    complete = (
+        "The laptop needs 16 GB RAM, 60 GB free storage, Wi-Fi 5 or newer, a working "
+        "browser, a USB-C or USB-A port, and permission to install software and local "
+        "development tools [1]."
+    )
+
+    assert not RAGPipeline._specification_requirements_complete(
+        question,
+        incomplete,
+        citations,
+    )
+    assert RAGPipeline._specification_requirements_complete(question, complete, citations)
+    assert not RAGPipeline._specification_requirements_complete(
+        question,
+        complete + " Complete all operating-system updates before arrival [1].",
+        citations,
+    )
+    assert RAGPipeline._specification_requirements_complete(
+        "When must I return the loan laptop?",
+        incomplete,
+        citations,
+    )
+
+
+def test_incomplete_device_specification_answer_gets_one_grounded_repair(tmp_path):
+    class SpecificationRuntime(FakeRuntime):
+        def __init__(self):
+            super().__init__()
+            self.calls = 0
+
+        def generate(self, messages):
+            self.calls += 1
+            if self.calls == 1:
+                return "The laptop needs 16 GB RAM, 60 GB free storage, and Wi-Fi 5 [1]."
+            assert "include every listed memory" in messages[-1]["content"]
+            return (
+                "The laptop needs 16 GB RAM and 60 GB free storage [1].\n"
+                "It needs Wi-Fi 5 or newer and a working browser [1].\n"
+                "It needs a USB-C or USB-A port [1].\n"
+                "You need permission to install software and local development tools [1]."
+            )
+
+    evidence = (
+        "The laptop needs 16 GB RAM and 60 GB free storage. It needs Wi-Fi 5 or newer, "
+        "a working browser, and a USB-C or USB-A port. You need permission to install "
+        "software and local development tools."
+    )
+    result = RetrievalResult(
+        chunk={
+            "filename": "equipment.md",
+            "text": evidence,
+            "page_start": None,
+            "section": "Participant laptop",
+        },
+        score=0.9,
+    )
+    citations = [{"index": 1, "filename": "equipment.md", "text": evidence}]
+    runtime = SpecificationRuntime()
+    pipeline = RAGPipeline(TracefoldStore(tmp_path / "tracefold.db"), runtime)
+
+    answer, used = pipeline._generate_validated(
+        "What specifications should my laptop have?",
+        [result],
+        citations,
+    )
+
+    assert runtime.calls == 2
+    assert "working browser" in answer
+    assert "USB-C or USB-A port" in answer
+    assert "permission to install software" in answer
+    assert used == citations
+
+
+def test_device_specification_repair_fails_closed_when_still_incomplete(tmp_path):
+    class StillIncompleteRuntime(FakeRuntime):
+        def __init__(self):
+            super().__init__()
+            self.calls = 0
+
+        def generate(self, _messages):
+            self.calls += 1
+            return "The laptop needs 16 GB RAM, 60 GB free storage, and Wi-Fi 5 [1]."
+
+    evidence = (
+        "The laptop needs 16 GB RAM, 60 GB free storage, Wi-Fi 5, a working browser, "
+        "a USB-C port, and permission to install software."
+    )
+    result = RetrievalResult(
+        chunk={
+            "filename": "equipment.md",
+            "text": evidence,
+            "page_start": None,
+            "section": "Participant laptop",
+        },
+        score=0.9,
+    )
+    citations = [{"index": 1, "filename": "equipment.md", "text": evidence}]
+    runtime = StillIncompleteRuntime()
+    pipeline = RAGPipeline(TracefoldStore(tmp_path / "tracefold.db"), runtime)
+
+    assert pipeline._generate_validated(
+        "What specifications should my laptop have?",
+        [result],
+        citations,
+    ) == (REFUSAL, [])
+    assert runtime.calls == 2
 
 
 def test_contact_and_numeric_facts_must_exist_in_the_cited_passage():
@@ -190,6 +451,20 @@ def test_contact_and_numeric_facts_must_exist_in_the_cited_passage():
     assert RAGPipeline.validate_generated_answer(invented, citations) == (REFUSAL, [])
 
 
+def test_numeric_hardware_roles_cannot_be_swapped_under_a_valid_citation():
+    citations = [
+        {
+            "index": 1,
+            "filename": "equipment.md",
+            "text": "The laptop requires 16 GB RAM and 60 GB free storage.",
+        }
+    ]
+
+    swapped = "The laptop requires 60 GB RAM and 16 GB storage [1]."
+
+    assert RAGPipeline.validate_generated_answer(swapped, citations) == (REFUSAL, [])
+
+
 def test_turkish_prompt_preserves_evidence_and_localizes_refusal():
     evidence = "Foundry Local, 17 Temmuz 2026 saat 14:30'da hazır olacak."
     result = RetrievalResult(
@@ -212,6 +487,15 @@ def test_turkish_prompt_preserves_evidence_and_localizes_refusal():
     assert RAGPipeline.validate_generated_answer(
         "Kaynağa dayanmayan yanıt.", [{"index": 1}], locale="tr"
     ) == (REFUSAL_TR, [])
+    assert RAGPipeline.validate_generated_answer(
+        f"{REFUSAL_TR} [2]",
+        [{"index": 2, "text": "irrelevant"}],
+        locale="tr",
+    ) == (REFUSAL_TR, [])
+    assert RAGPipeline.validate_generated_answer(
+        f"{REFUSAL} [1]",
+        [{"index": 1, "text": "irrelevant"}],
+    ) == (REFUSAL, [])
 
 
 def test_turkish_retrieval_keeps_original_and_adds_local_search_translation(tmp_path):
@@ -219,8 +503,8 @@ def test_turkish_retrieval_keeps_original_and_adds_local_search_translation(tmp_
         def translate_batch(self, texts, *, source_locale, target_locale):
             assert source_locale == "tr"
             assert target_locale == "en"
-            assert texts == ["Saat 20:00'den sonra varış prosedürü nedir?"]
-            return ["What is the late-arrival procedure after 20:00?"]
+            assert texts == ["Saat ZXQ0QXZ'den sonra varış prosedürü nedir?"]
+            return ["What is the late-arrival procedure after ZXQ0QXZ?"]
 
         def status(self, *, probe=False):
             return {"runtime": "query-test", "ready": True}
@@ -240,18 +524,27 @@ def test_turkish_retrieval_keeps_original_and_adds_local_search_translation(tmp_
     ]
 
 
-def test_turkish_generation_produces_direct_turkish_answer(tmp_path):
-    """Turkish locale now generates directly in Turkish (no round-trip translation)."""
-
-    class TurkishRuntime(FakeRuntime):
+def test_turkish_generation_translates_validated_claims_and_reconstructs_citations(tmp_path):
+    class EnglishRuntime(FakeRuntime):
         def generate(self, messages):
-            assert "Write the final answer in Turkish." in messages[0]["content"]
-            return "+90 312 555 0149 numaralı telefonu arayın [1]."
+            assert "Write the final answer in English." in messages[0]["content"]
+            return "Call +90 312 555 0149 before 19:30 [1]."
 
-    translation = ControlledTranslationService(FakeTranslationEngine())
+    class ClaimTranslationEngine(BaseTranslationEngine):
+        def translate_batch(self, texts, *, source_locale, target_locale):
+            if (source_locale, target_locale) == ("en", "tr"):
+                assert texts == ["Call ZXQ0QXZ before 19:30"]
+                return ["19:30'dan önce ZXQ0QXZ'yi arayın"]
+            assert (source_locale, target_locale) == ("tr", "en")
+            return ["Call +90 312 555 0149 before 19:30"]
+
+        def status(self, *, probe=False):
+            return {"runtime": "claim-test", "ready": True}
+
+    translation = ControlledTranslationService(ClaimTranslationEngine())
     pipeline = RAGPipeline(
         TracefoldStore(tmp_path / "tracefold.db"),
-        TurkishRuntime(),
+        EnglishRuntime(),
         translation,
     )
     result = RetrievalResult(
@@ -273,7 +566,73 @@ def test_turkish_generation_produces_direct_turkish_answer(tmp_path):
 
     answer, used = pipeline._generate_validated("Ne yapmalıyım?", [result], citations, locale="tr")
 
-    assert "+90 312 555 0149" in answer
+    assert answer == "19:30'dan önce +90 312 555 0149 numaralı telefonu arayın. [1]"
+    assert used == citations
+
+
+def test_turkish_generation_gets_one_grounded_repair_after_translation_rejection(tmp_path):
+    class RepairRuntime(FakeRuntime):
+        def __init__(self):
+            super().__init__()
+            self.calls = 0
+
+        def generate(self, messages):
+            self.calls += 1
+            if self.calls == 1:
+                return "Call +90 312 555 0149 before 19:30 [1]. Read the guide [1]."
+            assert "only the minimum facts" in messages[-1]["content"]
+            return "Call +90 312 555 0149 before 19:30 [1]."
+
+    class RejectOnceTranslation:
+        def __init__(self):
+            self.calls = 0
+
+        @staticmethod
+        def atomize_claim(claim):
+            return [claim]
+
+        def claims_to_turkish(self, claims):
+            self.calls += 1
+            if self.calls == 1:
+                raise TranslationRejected("compound optional claim")
+            assert claims == ["Call +90 312 555 0149 before 19:30"]
+            return ["19:30'dan önce +90 312 555 0149 numaralı telefonu arayın"]
+
+    runtime = RepairRuntime()
+    translation = RejectOnceTranslation()
+    pipeline = RAGPipeline(
+        TracefoldStore(tmp_path / "tracefold.db"),
+        runtime,
+        translation,
+    )
+    result = RetrievalResult(
+        chunk={
+            "filename": "travel.md",
+            "text": "Call +90 312 555 0149 before 19:30. Read the guide.",
+            "page_start": None,
+            "section": "Late arrivals",
+        },
+        score=0.9,
+    )
+    citations = [
+        {
+            "index": 1,
+            "filename": "travel.md",
+            "text": "Call +90 312 555 0149 before 19:30. Read the guide.",
+        }
+    ]
+
+    answer, used = pipeline._generate_validated(
+        "Ne yapmalıyım?",
+        [result],
+        citations,
+        locale="tr",
+        focus_question="What should I do?",
+    )
+
+    assert runtime.calls == 2
+    assert translation.calls == 2
+    assert answer == "19:30'dan önce +90 312 555 0149 numaralı telefonu arayın. [1]"
     assert used == citations
 
 
@@ -447,3 +806,41 @@ def test_checked_in_evaluation_dataset_resolves_demo_sources():
     assert payload["resolved_sources"]["01-program-handbook.md"].endswith(
         "demo_docs/01-program-handbook.md"
     )
+
+
+def test_required_fact_recall_accepts_clear_ordering_paraphrases():
+    fact = "The immediate emergency procedure takes priority over confidential conduct reporting."
+    answer = (
+        "Follow the emergency procedure first. After addressing the immediate threat, report the "
+        "conduct concern confidentially."
+    )
+
+    assert Evaluator._required_fact_recall(answer, fact) >= 0.65
+    assert (
+        Evaluator._required_fact_recall(
+            "Confidential conduct reporting takes priority over the immediate emergency procedure.",
+            fact,
+        )
+        == 0.0
+    )
+
+    required_order = [
+        {
+            "before_all": ["5555", "+90 312 555 0155"],
+            "after_all": ["conduct@northstar.example"],
+            "before_actions": ["call", "ara"],
+            "after_actions": ["email", "report", "send", "e-posta", "bildir", "gönder"],
+        }
+    ]
+    ordered = "Call 5555 or +90 312 555 0155 first. Then email conduct@northstar.example."
+    reversed_order = "Email conduct@northstar.example first. Then call 5555 or +90 312 555 0155."
+    assert Evaluator._required_order_complete(ordered, required_order) is True
+    assert Evaluator._required_order_complete(reversed_order, required_order) is False
+
+    misleading = (
+        "The immediate emergency procedure lists 5555 and +90 312 555 0155. "
+        "Confidential conduct reporting takes priority over the immediate emergency procedure. "
+        "First email conduct@northstar.example; then call 5555 or +90 312 555 0155."
+    )
+    assert Evaluator._required_fact_recall(misleading, fact) == 0.0
+    assert Evaluator._required_order_complete(misleading, required_order) is False

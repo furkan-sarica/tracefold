@@ -300,8 +300,8 @@ function reviewerTypeLabel(value: string | undefined, copy: typeof copyByLanguag
 function trapFocus(event: KeyboardEvent, container: HTMLElement | null) {
   if (event.key !== "Tab" || !container) return;
   const focusable = Array.from(container.querySelectorAll<HTMLElement>(
-    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), details > summary, [tabindex]:not([tabindex="-1"])',
-  )).filter((element) => !element.hasAttribute("hidden") && element.getAttribute("aria-hidden") !== "true");
+    'button:not([disabled]), [href], input:not([disabled]):not([type="radio"]), input[type="radio"]:checked:not([disabled]), select:not([disabled]), textarea:not([disabled]), details > summary, [tabindex]:not([tabindex="-1"])',
+  )).filter((element) => element.getClientRects().length > 0 && !element.hasAttribute("hidden") && element.getAttribute("aria-hidden") !== "true");
   if (!focusable.length) return;
   const first = focusable[0];
   const last = focusable[focusable.length - 1];
@@ -435,9 +435,11 @@ function App() {
   const evidenceCloseButton = useRef<HTMLButtonElement>(null);
   const evidenceTrigger = useRef<HTMLElement | null>(null);
   const preferencesButton = useRef<HTMLButtonElement>(null);
+  const mobileMenuButton = useRef<HTMLButtonElement>(null);
   const preferencesClose = useRef<HTMLButtonElement>(null);
   const preferencesDialog = useRef<HTMLElement>(null);
   const evidenceDialog = useRef<HTMLElement>(null);
+  const mainContent = useRef<HTMLElement>(null);
   const askFocusTimer = useRef<number | null>(null);
   const copy = copyByLanguage[preferences.language];
   const navItems: Array<{ id: View; label: string; icon: typeof Search }> = [
@@ -614,19 +616,23 @@ function App() {
           setPreferencesOpen(false);
           window.requestAnimationFrame(() => preferencesButton.current?.focus());
         }
-        setMobileNav(false);
+        if (mobileNav) {
+          setMobileNav(false);
+          window.requestAnimationFrame(() => mobileMenuButton.current?.focus());
+        }
       }
       if (selectedCitation) trapFocus(event, evidenceDialog.current);
       else if (preferencesOpen) trapFocus(event, preferencesDialog.current);
     };
     window.addEventListener("keydown", close);
     return () => window.removeEventListener("keydown", close);
-  }, [closeCitation, preferencesOpen, selectedCitation]);
+  }, [closeCitation, mobileNav, preferencesOpen, selectedCitation]);
 
   const navigate = (next: View) => {
     setView(next);
     setMobileNav(false);
     window.scrollTo({ top: 0, behavior: preferredScrollBehavior() });
+    window.requestAnimationFrame(() => mainContent.current?.focus({ preventScroll: true }));
   };
 
   const pollJob = async (jobId: string, taskId: string) => {
@@ -738,7 +744,7 @@ function App() {
 
   return (
     <div className="app-shell">
-      <a className="skip-link" href="#main-content">{copy.skipToContent}</a>
+      <a className="skip-link" href="#main-content" onClick={() => window.requestAnimationFrame(() => mainContent.current?.focus())}>{copy.skipToContent}</a>
       <header className="site-header">
         <div className="header-inner">
           <Brand copy={copy} />
@@ -756,13 +762,13 @@ function App() {
                 <Settings2 size={17} aria-hidden="true" /><span>{preferences.language.toUpperCase()}</span>
               </button>
             </div>
-            <button className="mobile-menu" onClick={() => { setMobileNav(!mobileNav); setPreferencesOpen(false); }} aria-expanded={mobileNav} aria-controls="tracefold-mobile-navigation" aria-label={mobileNav ? copy.navigation.close : copy.navigation.open}><Menu size={21} /></button>
+            <button ref={mobileMenuButton} className="mobile-menu" onClick={() => { setMobileNav(!mobileNav); setPreferencesOpen(false); }} aria-expanded={mobileNav} aria-controls="tracefold-mobile-navigation" aria-label={mobileNav ? copy.navigation.close : copy.navigation.open}><Menu size={21} /></button>
           </div>
         </div>
         {mobileNav && <nav id="tracefold-mobile-navigation" className="mobile-nav" aria-label={copy.navigation.mobileLabel}>{navItems.map((item) => { const Icon = item.icon; return <button key={item.id} className={view === item.id ? "active" : ""} aria-current={view === item.id ? "page" : undefined} onClick={() => navigate(item.id)}><Icon size={18} aria-hidden="true" />{item.label}</button>; })}</nav>}
       </header>
 
-      <main id="main-content">
+      <main ref={mainContent} id="main-content" tabIndex={-1}>
         {view === "ask" && (
           <section className="ask-page">
             <div className="hero-copy">
@@ -825,10 +831,10 @@ function App() {
           <section className="page-section">
             <div className="page-heading"><div><span className="section-kicker">{copy.library.kicker}</span><h1>{copy.library.title}</h1><p>{copy.library.intro}</p></div><button className="primary-button" onClick={() => fileInput.current?.click()}><Plus size={17} />{copy.library.addDocuments}</button></div>
             <input ref={fileInput} type="file" multiple accept=".pdf,.docx,.txt,.md,.markdown" hidden onChange={(event) => { void handleFiles(Array.from(event.target.files || [])); event.target.value = ""; }} />
-            <div className={`dropzone ${dragging ? "dragging" : ""}`} onDragOver={(event) => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={(event) => { event.preventDefault(); setDragging(false); void handleFiles(Array.from(event.dataTransfer.files)); }} onClick={() => fileInput.current?.click()} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") fileInput.current?.click(); }} role="button" tabIndex={0}>
+            <div className={`dropzone ${dragging ? "dragging" : ""}`} onDragOver={(event) => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={(event) => { event.preventDefault(); setDragging(false); void handleFiles(Array.from(event.dataTransfer.files)); }} onClick={() => fileInput.current?.click()} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); fileInput.current?.click(); } }} role="button" tabIndex={0}>
               <span className="drop-icon"><UploadCloud size={24} /></span><div><strong>{copy.library.dropTitle}</strong><small>{copy.library.dropCopy}</small></div><span className="browse-label">{copy.library.browse}</span>
             </div>
-            {documentError && <div className="banner error" role="alert"><CircleAlert size={17} aria-hidden="true" /><span>{documentError}</span><button onClick={() => setDocumentError("")} aria-label={copy.library.dismiss}><X size={16} /></button></div>}
+            {documentError && <div className="banner error" role="alert"><CircleAlert size={17} aria-hidden="true" /><span>{documentError}</span><button className="icon-button" onClick={() => setDocumentError("")} aria-label={copy.library.dismiss}><X size={16} /></button></div>}
             {!!uploads.length && <section className="panel upload-panel" aria-live="polite"><div className="panel-heading"><div><span className="section-kicker">{copy.library.queueKicker}</span><h2>{copy.library.processing}</h2></div><button className="text-button" onClick={() => setUploads((current) => current.filter((item) => !["ready", "error"].includes(item.status)))}>{copy.library.clearCompleted}</button></div><div className="upload-list">{uploads.map((task) => <div className="upload-item" key={task.id}><span className={`file-icon ${task.status}`}><File size={18} /></span><div><strong>{task.filename}</strong><small>{preferences.language === "en" && task.message ? task.message : copy.library.taskCopy[task.status]}</small><span className="progress" role="progressbar" aria-label={`${task.filename}: ${copy.library.taskStatus[task.status]}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(task.progress)}><i style={{ width: `${task.progress}%` }} /></span></div><span className={`task-status ${task.status}`}>{task.status === "ready" ? <Check size={15} /> : task.status === "error" ? <CircleAlert size={15} /> : <LoaderCircle className={task.status !== "queued" ? "spin" : ""} size={15} />}{copy.library.taskStatus[task.status]}</span></div>)}</div></section>}
             <section className="panel library-panel">
               <div className="panel-heading"><div><span className="section-kicker">{copy.library.searchableKicker}</span><h2>{copy.library.indexedTitle}</h2></div><span className="count-pill">{copy.library.count(documents.length, documents.reduce((total, document) => total + (document.chunks || 0), 0))}</span></div>
@@ -1008,7 +1014,7 @@ function App() {
                         : item.answerable === false ? copy.quality.refusalCase : copy.quality.answerable;
                       return (
                         <details className={`case-item ${item.passed ? "pass" : "fail"}`} key={id}>
-                          <summary aria-label={copy.quality.expandCase(id)}>
+                          <summary>
                             <span className="case-result-icon" aria-hidden="true">{item.passed ? <Check size={18} /> : <CircleAlert size={18} />}</span>
                             <span className="case-summary-copy"><span className="case-tags"><b>{id}</b><i>{locale.toUpperCase()}</i><i>{categoryLabel}</i></span><strong>{item.question || "—"}</strong></span>
                             <span className="case-result-label">{item.passed ? copy.quality.casePassed : copy.quality.caseFailed}</span>
@@ -1091,7 +1097,7 @@ function App() {
 
       {selectedCitation && (
         <div className="drawer-layer" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeCitation(); }}>
-          <aside ref={evidenceDialog} className="evidence-drawer" role="dialog" aria-modal="true" aria-labelledby="evidence-title" aria-describedby="evidence-description">
+          <section ref={evidenceDialog} className="evidence-drawer" role="dialog" aria-modal="true" aria-labelledby="evidence-title" aria-describedby="evidence-description">
             <div className="drawer-header">
               <div><span className="section-kicker">{copy.evidence.kicker}</span><h2 id="evidence-title">{copy.evidence.source(selectedCitation.index)}</h2></div>
               <button ref={evidenceCloseButton} className="icon-button" autoFocus onClick={closeCitation} aria-label={copy.evidence.close}><PanelRightClose size={20} /></button>
@@ -1100,7 +1106,7 @@ function App() {
             <div className="evidence-meta"><span>{copy.evidence.similarity} <strong>{selectedCitation.score !== undefined ? formatPercent(selectedCitation.score, copy.locale) : copy.evidence.notReported}</strong></span>{selectedCitation.chunk_id && <span>{copy.evidence.chunk} <strong>{selectedCitation.chunk_id}</strong></span>}</div>
             <blockquote><span>{copy.evidence.excerpt}</span><p>{formatExcerpt(selectedCitation.excerpt)}</p></blockquote>
             <div className="drawer-foot"><ShieldCheck size={16} aria-hidden="true" /><p id="evidence-description">{copy.evidence.foot}</p></div>
-          </aside>
+          </section>
         </div>
       )}
     </div>

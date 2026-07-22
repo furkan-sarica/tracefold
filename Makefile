@@ -1,21 +1,31 @@
-.PHONY: venv install install-dev frontend-install bootstrap models build verify-deps lint test test-e2e release-check api web demo demo-ready seed seed-reset eval
+.PHONY: venv install install-dev frontend-install frontend-browser bootstrap lock models build verify-deps lint test test-e2e release-check release-checksums release-artifacts release-ready api web demo demo-ready seed seed-reset eval
 
 PYTHON ?= $(CURDIR)/.venv/bin/python
 NPM ?= npm --prefix frontend
+UV ?= uv
+RUNTIME_LOCK ?= requirements-lock.txt
+DEV_LOCK ?= requirements-dev-lock.txt
 
 venv:
 	python3.11 -m venv .venv
 
 install: venv
-	$(PYTHON) -m pip install -r requirements.txt
+	$(PYTHON) -m pip install --require-hashes -r $(RUNTIME_LOCK)
 
 install-dev: venv
-	$(PYTHON) -m pip install -r requirements-dev.txt
+	$(PYTHON) -m pip install --require-hashes -r $(DEV_LOCK)
 
 frontend-install:
 	$(NPM) ci
 
-bootstrap: install-dev frontend-install
+frontend-browser:
+	$(NPM) exec -- playwright install chromium
+
+bootstrap: install-dev frontend-install frontend-browser
+
+lock:
+	$(UV) pip compile requirements.txt --universal --python-version 3.11 --generate-hashes --custom-compile-command 'make lock' --output-file $(RUNTIME_LOCK)
+	$(UV) pip compile requirements-dev.txt --universal --python-version 3.11 --generate-hashes --custom-compile-command 'make lock' --output-file $(DEV_LOCK)
 
 models:
 	$(PYTHON) scripts/prepare_models.py
@@ -25,7 +35,8 @@ build:
 
 verify-deps:
 	$(PYTHON) -m pip check
-	$(NPM) audit --omit=dev --audit-level=high
+	$(PYTHON) -m pip_audit --require-hashes --disable-pip --strict --progress-spinner off -r $(DEV_LOCK)
+	$(NPM) audit --audit-level=high
 
 lint:
 	$(PYTHON) -m ruff check backend scripts tests
@@ -41,6 +52,14 @@ test-e2e:
 	$(NPM) run test:e2e
 
 release-check: verify-deps lint test test-e2e
+
+release-checksums:
+	$(PYTHON) scripts/check_release_artifacts.py --write-checksums
+
+release-artifacts:
+	$(PYTHON) scripts/check_release_artifacts.py
+
+release-ready: release-check release-artifacts
 
 api:
 	cd backend && TRACEFOLD_RUNTIME=foundry $(PYTHON) -m uvicorn main:app --reload --host 127.0.0.1 --port 8000

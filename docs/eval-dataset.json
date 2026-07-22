@@ -117,6 +117,29 @@
         "Call campus emergency extension 5555 or +90 312 555 0155.",
         "A conduct concern can also be reported to the Conduct Lead at conduct@northstar.example once immediate safety is addressed."
       ],
+      "required_order": [
+        {
+          "before_all": [
+            "5555",
+            "+90 312 555 0155"
+          ],
+          "before_actions": [
+            "call",
+            "ara"
+          ],
+          "after_all": [
+            "conduct@northstar.example"
+          ],
+          "after_actions": [
+            "email",
+            "report",
+            "send",
+            "e-posta",
+            "bildir",
+            "gönder"
+          ]
+        }
+      ],
       "expected_answer_snippet": "Use 5555 or +90 312 555 0155 first, then report through the Conduct Lead when it is safe",
       "must_refuse": false
     },
@@ -307,6 +330,29 @@
         "Gizli davranış bildiriminden önce acil durum prosedürü uygulanmalıdır.",
         "Kampüs acil durum dahili numarası 5555 veya mobil telefon numarası +90 312 555 0155 aranmalıdır.",
         "Acil güvenlik sağlandıktan sonra conduct@northstar.example adresine e-posta gönderilerek Davranış Sorumlusuna bildirim yapılabilir."
+      ],
+      "required_order": [
+        {
+          "before_all": [
+            "5555",
+            "+90 312 555 0155"
+          ],
+          "before_actions": [
+            "call",
+            "ara"
+          ],
+          "after_all": [
+            "conduct@northstar.example"
+          ],
+          "after_actions": [
+            "email",
+            "report",
+            "send",
+            "e-posta",
+            "bildir",
+            "gönder"
+          ]
+        }
       ],
       "expected_answer_snippet": "Önce 5555 veya +90 312 555 0155 numaralı telefonu arayın; güvenli olduğunda conduct@northstar.example adresine bildirin",
       "must_refuse": false

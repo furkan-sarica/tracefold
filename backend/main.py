@@ -109,7 +109,7 @@ def create_app(
 
     application = FastAPI(
         title="Tracefold",
-        version="3.0.0",
+        version="1.0.0",
         description="Answers you can trace — fully local RAG with Foundry Local.",
     )
     allowed_origins = [

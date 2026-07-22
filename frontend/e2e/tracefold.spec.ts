@@ -79,22 +79,46 @@ async function openNavigation(page: Page, mobile: boolean) {
   if (mobile) await page.getByRole("button", { name: "Open navigation" }).click();
 }
 
-async function expectNoBlockingA11yViolations(page: Page) {
+async function expectNoA11yViolations(page: Page) {
   const results = await new AxeBuilder({ page }).analyze();
-  const blocking = results.violations
-    .filter((violation) => violation.impact === "serious" || violation.impact === "critical")
-    .map((violation) => ({
-      id: violation.id,
-      impact: violation.impact,
-      description: violation.description,
-      targets: violation.nodes.flatMap((node) => node.target),
-    }));
-  expect(blocking).toEqual([]);
+  const violations = results.violations.map((violation) => ({
+    id: violation.id,
+    impact: violation.impact,
+    description: violation.description,
+    targets: violation.nodes.flatMap((node) => node.target),
+  }));
+  expect(violations).toEqual([]);
+}
+
+async function applyPreferences(page: Page, language: "en" | "tr", theme: "light" | "dark") {
+  await page.evaluate(({ nextLanguage, nextTheme }) => {
+    window.localStorage.setItem("tracefold.preferences.v1", JSON.stringify({ language: nextLanguage, theme: nextTheme, motion: "reduced" }));
+  }, { nextLanguage: language, nextTheme: theme });
+  await page.reload();
+}
+
+async function navigateTo(page: Page, mobile: boolean, label: string) {
+  await openNavigation(page, mobile);
+  await page.getByRole("button", { name: label, exact: true }).click();
+}
+
+async function expectMinimumTargetSize(page: Page) {
+  const tooSmall = await page.locator('button:visible, [role="button"]:visible, a:visible, input:visible:not([type="radio"]), select:visible, textarea:visible, summary:visible, .preference-options label:visible').evaluateAll((elements) => elements.flatMap((element) => {
+    const bounds = element.getBoundingClientRect();
+    if (bounds.width >= 24 && bounds.height >= 24) return [];
+    return [{
+      element: element.tagName.toLowerCase(),
+      name: element.getAttribute("aria-label") || element.textContent?.trim().slice(0, 80) || "unnamed",
+      width: Math.round(bounds.width),
+      height: Math.round(bounds.height),
+    }];
+  }));
+  expect(tooSmall).toEqual([]);
 }
 
 test.beforeEach(async ({ page }) => {
   await mockApi(page);
-  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
 });
 
@@ -124,7 +148,7 @@ test("quality report exposes targets, bilingual totals, context, and case eviden
   await expect(page.getByText("12 Turkish cases")).toBeVisible();
   await expect(page.getByText(`${reviewDigest.slice(0, 12)}…`)).toHaveAttribute("title", reviewDigest);
   await expect(page.getByTitle("2026-07-18T12:00:00+00:00")).toBeVisible();
-  await expectNoBlockingA11yViolations(page);
+  await expectNoA11yViolations(page);
 
   await page.getByText("Program ne zaman başlıyor?").click();
   await expect(page.getByText("Program 3 Ağustos 2026 tarihinde başlıyor.")).toBeVisible();
@@ -136,7 +160,7 @@ test("quality report exposes targets, bilingual totals, context, and case eviden
   await preferences.locator("label").filter({ hasText: "Türkçe" }).click();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("status", { name: "Yayın için onaylandı" })).toBeVisible();
-  await expect(page.getByText("Temiz")).toBeVisible();
+  await expect(page.getByText("Temiz", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Çeviri kaydı ve yayın eşikleri" })).toBeVisible();
   await expect(page.getByText("En az %60 içerik kapsaması gerekli")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Ayrıntılı dil incelemesi" })).toBeVisible();
@@ -157,7 +181,7 @@ test("setup exposes both pinned OPUS-MT checkpoints and the glossary", async ({ 
   await expect(page.getByText("northstar-summer-lab-en-tr-v1")).toBeVisible();
   await expect(page.getByText("42", { exact: true })).toBeVisible();
   await expect(page.getByText("Checkpoints verified")).toBeVisible();
-  await expectNoBlockingA11yViolations(page);
+  await expectNoA11yViolations(page);
 
   await page.getByRole("button", { name: "Open preferences" }).click();
   const preferences = page.getByRole("dialog", { name: "Preferences" });
@@ -171,7 +195,7 @@ test("setup exposes both pinned OPUS-MT checkpoints and the glossary", async ({ 
 test("composer, evidence dialog, and preferences work with keyboard and touch layouts", async ({ page }, testInfo) => {
   const mobile = testInfo.project.name === "mobile-chromium";
   await expect(page.getByRole("textbox", { name: "Ask your library" })).toBeEnabled();
-  await expectNoBlockingA11yViolations(page);
+  await expectNoA11yViolations(page);
   await page.getByRole("textbox", { name: "Ask your library" }).fill("When does it begin?");
   await page.getByRole("button", { name: "Send question" }).click();
   await expect(page.getByText("The program begins on 3 August 2026.")).toBeVisible();
@@ -193,4 +217,97 @@ test("composer, evidence dialog, and preferences work with keyboard and touch la
     await page.getByRole("button", { name: "Menüyü aç" }).click();
     await expect(page.getByRole("navigation", { name: "Mobil menü" })).toBeVisible();
   }
+});
+
+for (const theme of ["light", "dark"] as const) {
+  test(`has no Axe violations in the ${theme} theme`, async ({ page }, testInfo) => {
+    const mobile = testInfo.project.name === "mobile-chromium";
+    await applyPreferences(page, "en", theme);
+
+    for (const view of ["Ask", "Library", "Setup", "Quality"]) {
+      await navigateTo(page, mobile, view);
+      await expectNoA11yViolations(page);
+    }
+
+    await navigateTo(page, mobile, "Ask");
+    await page.getByRole("textbox", { name: "Ask your library" }).fill("When does it begin?");
+    await page.getByRole("button", { name: "Send question" }).click();
+    const citation = page.getByRole("button", { name: /01-program-handbook\.md/ });
+    await citation.click();
+    await expect(page.getByRole("dialog", { name: "Source [1]" })).toBeVisible();
+    await expectNoA11yViolations(page);
+    await page.keyboard.press("Escape");
+
+    await page.getByRole("button", { name: "Open preferences" }).click();
+    await expect(page.getByRole("dialog", { name: "Preferences" })).toBeVisible();
+    await expectNoA11yViolations(page);
+  });
+}
+
+test("keeps keyboard focus inside preferences with default radio selections", async ({ page }) => {
+  await page.evaluate(() => window.localStorage.removeItem("tracefold.preferences.v1"));
+  await page.reload();
+  await page.getByRole("button", { name: "Open preferences" }).click();
+
+  const preferences = page.getByRole("dialog", { name: "Preferences" });
+  const close = page.getByRole("button", { name: "Close preferences" });
+  await expect(close).toBeFocused();
+  for (let index = 0; index < 4; index += 1) await page.keyboard.press("Tab");
+  await expect(close).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(preferences.locator("input:focus")).toHaveAttribute("type", "radio");
+});
+
+test("restores mobile navigation focus and moves focus into the selected view", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile-chromium", "Mobile navigation is only rendered in the mobile project.");
+
+  const menu = page.getByRole("button", { name: "Open navigation" });
+  await menu.click();
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("button", { name: "Ask", exact: true })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeFocused();
+
+  await menu.click();
+  await page.getByRole("button", { name: "Setup", exact: true }).click();
+  await expect(page.locator("#main-content")).toBeFocused();
+});
+
+test("moves skip-link focus to the main landmark", async ({ page }) => {
+  const skipLink = page.getByRole("link", { name: "Skip to content" });
+  await skipLink.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#main-content")).toBeFocused();
+});
+
+test("reflows the Turkish quality report without horizontal scrolling at 320px", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium", "The 320px reflow proof only needs one Chromium project.");
+  await page.setViewportSize({ width: 320, height: 720 });
+  await applyPreferences(page, "tr", "dark");
+  await page.getByRole("button", { name: "Menüyü aç" }).click();
+  await page.getByRole("button", { name: "Kalite", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Kalite raporu" })).toBeVisible();
+
+  const dimensions = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
+});
+
+test("keeps visible interactive targets at least 24 by 24 CSS pixels", async ({ page }, testInfo) => {
+  const mobile = testInfo.project.name === "mobile-chromium";
+  for (const view of ["Ask", "Library", "Setup", "Quality"]) {
+    await navigateTo(page, mobile, view);
+    await expectMinimumTargetSize(page);
+  }
+
+  await navigateTo(page, mobile, "Ask");
+  await page.getByRole("textbox", { name: "Ask your library" }).fill("When does it begin?");
+  await page.getByRole("button", { name: "Send question" }).click();
+  await page.getByRole("button", { name: /01-program-handbook\.md/ }).click();
+  await expectMinimumTargetSize(page);
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Open preferences" }).click();
+  await expectMinimumTargetSize(page);
 });

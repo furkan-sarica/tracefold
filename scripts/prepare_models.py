@@ -18,10 +18,9 @@ from foundry_local_sdk import Configuration, FoundryLocalManager
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "backend"))
 
+from runtime import DEFAULT_CHAT_MODEL, DEFAULT_EMBEDDING_MODEL  # noqa: E402
 from translation import MarianTranslationEngine  # noqa: E402
 
-DEFAULT_EMBEDDING_MODEL = "qwen3-embedding-0.6b"
-DEFAULT_CHAT_MODEL = "qwen2.5-7b"
 WEBGPU_EP = "WebGpuExecutionProvider"
 
 

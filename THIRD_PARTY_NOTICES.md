@@ -2,6 +2,19 @@
 
 Tracefold source code is distributed under the repository's [MIT License](LICENSE). That license does not relicense third-party model checkpoints downloaded by the application.
 
+## Microsoft Foundry Local and Qwen models
+
+Tracefold uses the MIT-licensed [Microsoft Foundry Local SDK](https://github.com/microsoft/Foundry-Local) to discover, download, and run compatible on-device variants of these models:
+
+| Tracefold alias | Upstream model | Foundry catalog license | License terms |
+| --- | --- | --- | --- |
+| `qwen3-embedding-0.6b` | [Qwen3-Embedding-0.6B](https://huggingface.co/Qwen/Qwen3-Embedding-0.6B) | Apache License 2.0 | [Upstream license](https://huggingface.co/Qwen/Qwen3-Embedding-0.6B/blob/main/LICENSE) |
+| `qwen2.5-14b` | [Qwen2.5-14B-Instruct](https://huggingface.co/Qwen/Qwen2.5-14B-Instruct) | Apache License 2.0 | [Upstream license](https://huggingface.co/Qwen/Qwen2.5-14B-Instruct/blob/main/LICENSE) |
+
+The aliases resolve to a hardware-compatible Foundry variant at setup time. The exact variant ID, device, and execution provider used for a release evaluation are recorded in `docs/evaluation-report.json` rather than represented as a portable model binary in this repository.
+
+Tracefold does not modify or redistribute Foundry or Qwen model weights. `make models` explicitly downloads them to Foundry Local's on-device cache. The upstream model terms and the Foundry catalog entry are authoritative if this notice differs from them; use of these models does not imply endorsement by Microsoft, Qwen, Alibaba Cloud, or the upstream contributors.
+
 ## Helsinki-NLP OPUS-MT translation models
 
 Tracefold's controlled offline Turkish path uses these unmodified upstream checkpoints:

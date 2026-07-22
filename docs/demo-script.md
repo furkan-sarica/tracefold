@@ -19,7 +19,7 @@ Open **Setup**.
 Point out:
 
 - Foundry Local reports ready.
-- The exact `qwen3-embedding-0.6b` and `qwen2.5-7b` Foundry identifiers, device, and execution provider are visible.
+- The exact `qwen3-embedding-0.6b` and `qwen2.5-14b` Foundry identifiers, device, and execution provider are visible.
 - The `Helsinki-NLP/opus-mt-tc-big-tr-en` and `Helsinki-NLP/opus-mt-tc-big-en-tr` translation checkpoints are local and ready.
 - The application has no cloud-provider configuration or API key.
 
@@ -27,7 +27,7 @@ Point out:
 
 ## 1:05–1:40 — Show the library and ingestion evidence
 
-Open **Library**. Show the eight Northstar Summer Lab documents, their indexed status, and the 53-chunk release index. If time allows, remove and re-add `03-travel-guide.md` to show ingestion progress and duplicate-safe indexing.
+Open **Library**. Show the eight Northstar Summer Lab documents, their indexed status, and the current chunk count shown by the application. If time allows, remove and re-add `03-travel-guide.md` to show ingestion progress and duplicate-safe indexing.
 
 > “The parser preserves headings and source locations, then chunks each document, creates local embeddings, and stores text plus Float32 vectors in SQLite.”
 
@@ -57,7 +57,7 @@ Varış günü kampüse saat 20:00'den sonra ulaşacağım. Ne yapmalıyım ve k
 
 Confirm that the response is natural Turkish, preserves `19:30`, `+90 312 555 0149`, and `program@northstar.example` exactly, and cites the same stored evidence. Open one citation and show its source passage.
 
-> “Türkçe, yalnızca arayüz çevirisi değil. Soru önce koruma belirteçleriyle İngilizceye çevriliyor; Foundry Local kanıta dayalı İngilizce iddiaları üretiyor ve doğruluyor. Yalnızca doğrulanmış iddialar Türkçeye çevriliyor; atıflar yeniden yerleştiriliyor, ters çeviri ile kritik olgu ve dil kontrolleri tamamlanıyor.”
+> “Türkçe, yalnızca arayüz çevirisi değil. Soru önce koruma belirteçleriyle İngilizceye çevriliyor; Foundry Local kanıta dayalı İngilizce iddiaları üretiyor ve doğruluyor. Yalnızca doğrulanmış iddialar Türkçeye çevriliyor; atıflar yeniden yerleştiriliyor. Tarih, saat ve iletişim bilgileri ile işlem sırası korunmadan; ters çeviri ve Türkçe dil kontrolleri geçilmeden yanıt gösterilmiyor.”
 
 ## 3:20–3:50 — Prove safe refusal
 
@@ -75,17 +75,20 @@ Expected response:
 
 ## 3:50–4:35 — Show quality evidence
 
-Open **Kalite** and display the latest accepted 24-case evaluation. Clearly separate acceptance targets from measured values.
+Open **Kalite** and display the latest real-model evaluation report. First verify whether the run is accepted or failed; clearly separate acceptance targets from measured values.
 
 Point out:
 
 - Dataset `northstar-summer-lab-2026-bilingual-parity-v3`: 12 unique English/Turkish pairs, 24 cases total; each language has eight answerable and four unanswerable cases.
+- The release configuration: `0.60` retrieval threshold, `0.30` evidence floor, and at most four focused context chunks whose excerpt text fits the `3200`-character budget.
 - Hit@5, expected-source coverage, and per-locale results.
 - Citation validity, sentence-level citation coverage, protected-fact grounding, and post-translation citation reconstruction.
-- Safe-refusal accuracy, bilingual paired-case accuracy, reverse-translation/language gates, and warm retrieval latency.
+- Safe-refusal accuracy, bilingual paired-case accuracy, explicit order/calendar checks, reverse-translation/language gates, and warm retrieval latency.
+- The OPUS round-trip gates: at least `0.60` recall for unprotected content and the `0.30` overall content-sanity floor.
+- The bounded repair policy: at most one grounded repair for an invalid English answer and, after a Turkish translation rejection, at most one separate translation-aware atomic restatement; every original gate still applies and the next failure becomes a safe refusal.
 - The exact Foundry/OPUS-MT identities, retrieval/translation configuration, evaluated Git revision, and clean-tree provenance in `docs/evaluation-report.json`.
 
-Never describe a target as achieved unless the current recorded run shows it. If the report's revision is not the intended release code commit or its dirty flag is true, treat the report as stale and rerun `make eval`.
+Never describe a target as achieved unless the current recorded run shows it. Do not call the full 24-case suite successful unless every case is marked passed. If the report's revision is not the intended release code commit or its dirty flag is true, treat the report as stale and rerun `make eval`.
 
 ## 4:35–5:00 — Close on the differentiator
 

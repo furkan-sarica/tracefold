@@ -17,17 +17,17 @@ Tracefold is designed for local document question answering in English and Turki
 | Evaluation questions, answers, evidence, metrics, and timings | Reproducible quality evidence | Local SQLite database; exported release runs may also be written to `docs/evaluation-report.json` | Until local data is cleared; an explicitly exported report remains until deleted from the project |
 | Foundry and OPUS-MT model files | Local inference | Their respective on-device model caches | Until the operator removes those caches |
 | Northstar glossary | Stable reviewed terminology for the release corpus | Checked-in project file | Until changed or removed from the project |
-| Application logs | Operational diagnosis | Local process output or configured log file | Controlled by the local operator |
+| Server and model-runtime logs | Operational diagnosis | Local process output or an operator-configured log destination | Controlled by the local operator and the selected runtimes |
 
 Turkish queries and answers may exist transiently in both languages while the controlled translation, reverse-translation, and validation stages run. Typed sentinels temporarily replace protected values such as dates, times, phone numbers, email addresses, and glossary-controlled terms; the pipeline rejects output when they cannot be restored exactly. Citation markers are detached before answer translation and reconstructed from the validated sentence map afterward. Normal intermediate translations are not written to a conversation history.
 
-The default operational logging policy records event type, duration, model status, and safe identifiers. It should not record full document text, raw question bodies, translations, generated answers, sentinel mappings, or embedding arrays. Evaluation is the deliberate exception: its checked-in synthetic questions, generated answers, retrieved/cited source names, metrics, and code provenance are persisted and may be exported so a release can be audited. Do not run or export that evaluation with private material.
+Tracefold does not implement application-level logging of questions, generated answers, document text, intermediate translations, sentinel mappings, or embedding arrays. The server and model runtimes can still emit operator-controlled diagnostics—such as request paths, status codes, model load messages, or errors—to local process output or a configured log destination. Their verbosity and retention depend on how the operator launches and configures those components. Evaluation is the deliberate exception to normal application persistence: its checked-in synthetic questions, generated answers, retrieved/cited source names, metrics, and code provenance are stored and may be exported so a release can be audited. Do not run or export that evaluation with private material.
 
 ## Network behavior
 
 Model acquisition may require network access during explicit setup: Foundry Local supplies the embedding/chat variants and Hugging Face supplies the two Helsinki-NLP OPUS-MT checkpoints. After those assets are cached, the accepted query path uses local files, SQLite, localhost HTTP, Foundry Local, and the on-device translation runtime. Neither query text nor document text is sent to Hugging Face. The application includes no cloud inference fallback, analytics beacon, web search, remote font, or CDN dependency.
 
-An offline smoke test is part of release acceptance. A missing local model produces a visible setup error rather than transmitting data elsewhere or silently returning synthetic output.
+The explicit `make models` preparation step includes local model smoke checks. The release gate does not claim to prove that every host is offline; operators who need that assurance should verify network isolation in their own environment. A missing local model produces a visible setup error rather than selecting a cloud inference fallback or silently returning synthetic output.
 
 ## User controls
 

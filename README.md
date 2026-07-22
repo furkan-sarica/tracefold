@@ -1,10 +1,12 @@
 # Tracefold
 
+[**English**](README.md) · [Türkçe](README.tr.md)
+
 > **Answers you can trace.** A private, source-grounded document assistant with Microsoft Foundry Local at its RAG core.
 
 ![Tracefold — Answers you can trace](frontend/public/og.png)
 
-Tracefold turns a small document library into inspectable English and Turkish answers. It parses and chunks files, creates embeddings on the device with Foundry Local `qwen3-embedding-0.6b`, stores Float32 vectors in SQLite, retrieves evidence with cosine similarity, and asks Foundry Local `qwen2.5-7b` to form source-grounded English claims. A controlled offline OPUS-MT layer translates Turkish queries into English and validated English claims into Turkish. If retrieval is too weak—or translation, protected facts, language, or citations fail validation—the application refuses instead of guessing.
+Tracefold turns a small document library into inspectable English and Turkish answers. It parses and chunks files, creates embeddings on the device with Foundry Local `qwen3-embedding-0.6b`, stores Float32 vectors in SQLite, retrieves evidence with cosine similarity, and asks Foundry Local `qwen2.5-14b` to form source-grounded English claims. A controlled offline OPUS-MT layer translates Turkish queries into English and validated English claims into Turkish. If retrieval is too weak—or translation, protected facts, language, or citations fail validation—the application refuses instead of guessing.
 
 The result is an assignment-complete local RAG system presented as a polished product: runtime setup, document library, evidence-first chat, citation drawer, deterministic safe refusal, and a reproducible quality dashboard.
 
@@ -26,7 +28,7 @@ The result is an assignment-complete local RAG system presented as a polished pr
 | Requested capability | Tracefold implementation |
 | --- | --- |
 | 5–10 source documents | 8 cohesive, synthetic Northstar Summer Lab documents |
-| Local embeddings and chat | Foundry Local `qwen3-embedding-0.6b` retrieval + `qwen2.5-7b` grounded claim generation |
+| Local embeddings and chat | Foundry Local `qwen3-embedding-0.6b` retrieval + `qwen2.5-14b` grounded claim generation |
 | Controlled Turkish path | Helsinki-NLP `opus-mt-tc-big-tr-en` + `opus-mt-tc-big-en-tr`, protected sentinels, extensible glossary, citation reconstruction, and reverse/protected-fact/language gates |
 | Document chunking | Heading-aware 240-token chunks with 45-token overlap; sections never merge |
 | Vector persistence | Little-endian Float32 embedding BLOBs in SQLite |
@@ -34,7 +36,7 @@ The result is an assignment-complete local RAG system presented as a polished pr
 | Grounded answers | Evidence-only prompt, sentence-level citation validation, protected-fact checks, exact evidence drawer |
 | Safe unknown handling | Calibrated pre-generation threshold plus deterministic English/Turkish refusal |
 | Evaluation and testing | 24-case bilingual parity dataset, persisted and exported metrics, lint, unit, coverage, build, and browser E2E gates |
-| Final presentation | Six-slide English deck, PDF export, and natural Turkish speaker script |
+| Final presentation | Six-slide English and Turkish PPTX/PDF decks with matching speaker material |
 
 ## Requirements
 
@@ -50,16 +52,18 @@ The release evaluation records its host, execution provider, exact Foundry varia
 ## Quick start
 
 ```bash
-git clone https://github.com/fufuizm/summer-school-rag-agent.git
-cd summer-school-rag-agent
+git clone https://github.com/furkan-sarica/tracefold.git
+cd tracefold
 
-make bootstrap   # Python + frontend dependencies
+make bootstrap   # hash-locked Python/npm dependencies + Playwright Chromium
 make models      # one-time Foundry + OPUS-MT model download and smoke test
 make seed-reset  # index the 8 synthetic demo documents
 make demo        # build UI and bind the complete app to localhost
 ```
 
 Open [http://127.0.0.1:8000](http://127.0.0.1:8000). After `make models`, both Foundry models and both OPUS-MT translation checkpoints are local, so the complete query path can run with the network disabled.
+
+Python 3.11 installs use the checked-in, hash-verified `requirements-lock.txt` and `requirements-dev-lock.txt`; npm installs use `frontend/package-lock.json`. The human-maintained `requirements*.txt` files define supported ranges. Run `make lock` deliberately after changing those ranges to regenerate both cross-platform Python locks with `uv`, then review and test the resulting diff.
 
 The `seed-reset` command intentionally replaces only Tracefold's local `data/tracefold.db` and `data/documents/` index. Use `make seed` to add any missing demo documents without resetting an existing index.
 
@@ -101,7 +105,9 @@ Kütüphanenizde bu soruyu yanıtlamak için yeterli kanıt bulamadım.
 
 | Command | Purpose |
 | --- | --- |
-| `make bootstrap` | Create `.venv`, install Python dependencies, run `npm ci` |
+| `make bootstrap` | Create `.venv`, install hash-locked Python/npm dependencies, and download Playwright Chromium |
+| `make lock` | Regenerate the Python 3.11 cross-platform, hash-verified runtime and development locks with `uv` |
+| `make frontend-browser` | Download the Chromium build pinned by the Playwright lock |
 | `make models` | Cache the two Foundry models and two OPUS-MT translation models, then run local smoke checks |
 | `make build` | Type-check and create the production frontend bundle |
 | `make seed` | Add missing synthetic demo documents to the local index |
@@ -112,12 +118,17 @@ Kütüphanenizde bu soruyu yanıtlamak için yeterli kanıt bulamadım.
 | `make lint` | Run Ruff and ESLint with warnings treated as failures |
 | `make test` | Run deterministic backend coverage tests, frontend unit tests, and the production build |
 | `make test-e2e` | Run Playwright browser tests against the built product flow |
-| `make release-check` | Run lint, backend/frontend unit checks, production build, and browser E2E tests |
+| `make release-check` | Audit the locked Python development and complete npm dependency sets, then run lint, unit/coverage, production build, and browser E2E gates |
 | `make eval` | Rebuild isolated `.tracefold-eval/` data, run the 24-case real-model evaluation, and export `docs/evaluation-report.json` |
+| `make release-checksums` | Validate the final report and EN/TR decks, then atomically write `release/SHA256SUMS` |
+| `make release-artifacts` | Verify the clean Git provenance, report approval, deck structure, PDFs, and every release checksum |
+| `make release-ready` | Run both the deterministic release gates and the final read-only artifact verification |
 
 The deterministic `TRACEFOLD_RUNTIME=fake` adapter is available only for automated tests. The user-facing runtime defaults to Foundry Local and exposes failures; there is no silent production fallback.
 
-GitHub Actions repeats the release quality gates on pushes and pull requests. The real-model evaluation stays a deliberate local release step because it requires Foundry Local and downloaded model assets. Its JSON report records the evaluated Git revision, whether that tree was dirty, dataset ID `northstar-summer-lab-2026-bilingual-parity-v3`, exact Foundry and OPUS-MT identities, platform, retrieval/translation configuration, document/chunk counts, per-locale metrics, and case-level evidence. A release report is accepted only when it names the intended code commit and records `dirty: false`.
+GitHub Actions repeats the Python and frontend quality gates, development-dependency security audits, and final release-artifact integrity check on pushes to `main` and on pull requests. `make release-check` intentionally excludes the artifact check so its deterministic code gates remain usable before the report and decks exist; `make release-ready` is the complete final gate. The real-model evaluation stays a deliberate local release step because it requires Foundry Local and downloaded model assets. Its JSON report records the evaluated Git revision, whether that tree was dirty, dataset ID `northstar-summer-lab-2026-bilingual-parity-v3`, exact Foundry and OPUS-MT identities, platform, retrieval/translation configuration, document/chunk counts, per-locale metrics, and case-level evidence. A release report is accepted only when it names the intended code commit and records `dirty: false`.
+
+For a release, first commit the behavior candidate and run `make eval` from that clean revision. Review every printed Turkish case before recording approval with `scripts/review_evaluation.py --report-json docs/evaluation-report.json --data-dir .tracefold-eval --reviewer "<reviewer>" --approve`. After the final EN/TR PPTX and PDF files are exported, run `make release-checksums`, commit only the resulting evidence/assets, and run `make release-ready` from the clean final commit. The artifact gate requires the evaluated behavior revision to be an ancestor of that commit and rejects intervening runtime-code changes.
 
 ## API
 
@@ -180,4 +191,4 @@ All checked-in Northstar content is fictional. Do not commit private source docu
 
 ## License
 
-Tracefold source code is [MIT licensed](LICENSE). The two OPUS-MT checkpoints retain their upstream CC BY 4.0 terms and attribution; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Tracefold source code is [MIT licensed](LICENSE). Foundry/Qwen and OPUS-MT assets retain their upstream terms and attribution; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

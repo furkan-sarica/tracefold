@@ -72,6 +72,8 @@ class Evaluator:
             "of",
             "on",
             "or",
+            "over",
+            "takes",
             "the",
             "to",
             "with",
@@ -91,10 +93,32 @@ class Evaluator:
             "nasıl",
             "nedir",
         }
+        aliases = {
+            "prioritize": "priority",
+            "prioritized": "priority",
+            "prioritizes": "priority",
+        }
+
+        def normalize(token: str) -> str:
+            token = aliases.get(token, token)
+            if token.isascii() and token.isalpha():
+                if len(token) > 6 and token.endswith("ingly"):
+                    token = token[:-5]
+                elif len(token) > 5 and token.endswith("ing"):
+                    token = token[:-3]
+                elif len(token) > 5 and token.endswith("edly"):
+                    token = token[:-4]
+                elif len(token) > 4 and token.endswith("ed"):
+                    token = token[:-2]
+                elif len(token) > 5 and token.endswith("ly"):
+                    token = token[:-2]
+            return aliases.get(token, token)
+
         return {
-            token
+            normalized
             for token in re.findall(r"[^\W_]+", value.casefold(), flags=re.UNICODE)
             if token not in stopwords
+            if (normalized := normalize(token)) not in stopwords
         }
 
     @classmethod
@@ -108,13 +132,104 @@ class Evaluator:
 
     @classmethod
     def _required_fact_recall(cls, answer: str, fact: str) -> float | None:
-        """Token recall with a hard guard for omitted numeric facts."""
+        """Token recall with hard guards for numeric and explicit priority relations."""
 
         expected_numbers = set(re.findall(r"\d+", fact))
         answer_numbers = set(re.findall(r"\d+", answer))
         if expected_numbers and not expected_numbers.issubset(answer_numbers):
             return 0.0
+        priority = re.search(
+            r"(?P<first>.+?)\s+(?:takes?\s+priority\s+over|must\s+happen\s+before|"
+            r"should\s+happen\s+before)\s+(?P<second>.+?)(?:[.!?]|$)",
+            fact,
+            flags=re.IGNORECASE,
+        )
+        if priority:
+            folded_answer = answer.casefold()
+            expected_first = cls._tokens(priority.group("first"))
+            expected_second = cls._tokens(priority.group("second"))
+
+            explicit_relations = re.finditer(
+                r"(?P<first>[^.!?;]+?)\s+(?:takes?\s+priority\s+over|must\s+happen\s+before|"
+                r"should\s+happen\s+before)\s+(?P<second>[^.!?;]+)",
+                answer,
+                flags=re.IGNORECASE,
+            )
+            for relation in explicit_relations:
+                observed_first = cls._tokens(relation.group("first"))
+                observed_second = cls._tokens(relation.group("second"))
+                correct = len(expected_first & observed_first) + len(
+                    expected_second & observed_second
+                )
+                inverse = len(expected_first & observed_second) + len(
+                    expected_second & observed_first
+                )
+                if inverse > correct:
+                    return 0.0
+
+            def earliest(entity: str) -> int | None:
+                positions = [
+                    folded_answer.find(token)
+                    for token in cls._tokens(entity)
+                    if folded_answer.find(token) >= 0
+                ]
+                return min(positions) if positions else None
+
+            first_position = earliest(priority.group("first"))
+            second_position = earliest(priority.group("second"))
+            if (
+                first_position is None
+                or second_position is None
+                or first_position >= second_position
+            ):
+                return 0.0
+            return cls._snippet_recall(
+                answer,
+                f"{priority.group('first')} {priority.group('second')}",
+            )
         return cls._snippet_recall(answer, fact)
+
+    @staticmethod
+    def _required_order_complete(answer: str, relations: list[dict[str, Any]]) -> bool | None:
+        """Verify explicit dataset order anchors without inferring from bag-of-words overlap."""
+
+        if not relations:
+            return None
+        folded = answer.casefold()
+
+        def anchored_position(term: str, actions: list[str]) -> int:
+            positions: list[int] = []
+            for match in re.finditer(re.escape(term), folded):
+                clause_start = max(
+                    folded.rfind(separator, 0, match.start()) for separator in ".!?;\n"
+                )
+                clause_end_candidates = [
+                    position
+                    for separator in ".!?;\n"
+                    if (position := folded.find(separator, match.end())) >= 0
+                ]
+                clause_end = min(clause_end_candidates) if clause_end_candidates else len(folded)
+                clause = folded[clause_start + 1 : clause_end]
+                if not actions or any(action in clause for action in actions):
+                    positions.append(match.start())
+            return min(positions) if positions else -1
+
+        for relation in relations:
+            before_terms = [str(value).casefold() for value in relation.get("before_all") or []]
+            after_terms = [str(value).casefold() for value in relation.get("after_all") or []]
+            before_actions = [
+                str(value).casefold() for value in relation.get("before_actions") or []
+            ]
+            after_actions = [str(value).casefold() for value in relation.get("after_actions") or []]
+            if not before_terms or not after_terms:
+                return False
+            before_positions = [anchored_position(value, before_actions) for value in before_terms]
+            after_positions = [anchored_position(value, after_actions) for value in after_terms]
+            if any(position < 0 for position in (*before_positions, *after_positions)):
+                return False
+            if max(before_positions) >= min(after_positions):
+                return False
+        return True
 
     @staticmethod
     def _protected_fact_complete(answer: str, facts: list[str]) -> bool:
@@ -249,6 +364,10 @@ class Evaluator:
             required_fact_complete = (
                 all(score >= 0.50 for score in fact_scores) if fact_scores else None
             )
+            required_order_complete = self._required_order_complete(
+                response["answer"],
+                case.get("required_order") or [],
+            )
             protected_fact_complete = self._protected_fact_complete(
                 response["answer"], case.get("required_facts") or []
             )
@@ -267,6 +386,7 @@ class Evaluator:
                 and refusal_correct
                 and term_match is not False
                 and required_fact_complete is not False
+                and required_order_complete is not False
                 and (required_fact_recall is None or required_fact_recall >= 0.65)
             )
             results.append(
@@ -299,6 +419,7 @@ class Evaluator:
                     ),
                     "required_fact_recall": required_fact_recall,
                     "required_fact_complete": required_fact_complete,
+                    "required_order_complete": required_order_complete,
                     "term_match": term_match,
                     "refusal_correct": refusal_correct,
                     "passed": passed,
@@ -333,6 +454,10 @@ class Evaluator:
                 "protected_fact_completeness": average(answerable_items, "protected_fact_complete"),
                 "snippet_token_recall": average(answerable_items, "snippet_token_recall"),
                 "required_fact_recall": average(answerable_items, "required_fact_recall"),
+                "required_order_accuracy": average(
+                    answerable_items,
+                    "required_order_complete",
+                ),
                 "required_fact_completeness": average(answerable_items, "required_fact_complete"),
                 "custom_term_accuracy": average(answerable_items, "term_match"),
                 "language_quality_accuracy": average(items, "language_quality"),
@@ -387,7 +512,8 @@ class Evaluator:
                     "retrieval_threshold": self.rag.threshold,
                     "evidence_floor": self.rag.evidence_floor,
                     "max_chunks_per_document": self.rag.max_chunks_per_document,
-                    "context_char_budget": int(os.getenv("TRACEFOLD_CONTEXT_CHAR_BUDGET", "1800")),
+                    "max_context_chunks": int(os.getenv("TRACEFOLD_MAX_CONTEXT_CHUNKS", "4")),
+                    "context_char_budget": int(os.getenv("TRACEFOLD_CONTEXT_CHAR_BUDGET", "3200")),
                     "translation_runtime": os.getenv("TRACEFOLD_TRANSLATION_RUNTIME", "marian"),
                     "translation_beams": int(os.getenv("TRACEFOLD_TRANSLATION_BEAMS", "4")),
                     "translation_max_tokens": int(
