@@ -1138,9 +1138,9 @@ onnxruntime-gpu==1.26.0 ; platform_machine == 'x86_64' and sys_platform == 'linu
     # via
     #   foundry-local-sdk
     #   onnxruntime-genai-cuda
-openai==2.46.0 \
-    --hash=sha256:0421e0735ac41451cad894af4cddf0435bfbf8cbc538ac0e15b3c062f2ddc06a \
-    --hash=sha256:672381db55efb3a1e2610f29304c130cccdd0b319bace4d492b2443cb64c1e7c
+openai==2.50.0 \
+    --hash=sha256:5128f7caf4a6b01aefd6e7e93efe170a2c3427b8de286b9af5cdff3aa47e02c8 \
+    --hash=sha256:90bdddcc5a2fa529b350fac9c5780d87e5c361dcc6090ab57b0d470b0d7af7fa
     # via foundry-local-sdk
 packageurl-python==0.17.6 \
     --hash=sha256:1252ce3a102372ca6f86eb968e16f9014c4ba511c5c37d95a7f023e2ca6e5c25 \
